@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delegent — Dashboard</title>
+  <style>
+    :root {
+      /* Lets Get Funded brand palette: deep forest green + white + green accents */
+      --nav:#0e3d2d; --nav2:#0a3326; --green:#22a05a; --green-d:#15803d;
+      --ink:#0f2a20; --muted:#5f6f67; --line:#e4ebe7; --bg:#f5f8f6;
+      --panel:#eef3f0; --accent:#15803d; --red:#e8513b; --sel:#0e3d2d;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+
+    /* Top nav */
+    .nav { background:var(--nav); color:#cfe3d7; display:flex; align-items:stretch; height:54px; }
+    .nav .tab { display:flex; align-items:center; gap:8px; padding:0 22px; font-size:15px; cursor:pointer; border-right:1px solid #3d4956; }
+    .nav .tab.active { background:#fff; color:var(--ink); font-weight:600; }
+    .nav .tab .chk { color:var(--green); }
+    .nav .caret { font-size:10px; opacity:.7; }
+    .nav .grow { flex:1; }
+    .nav .org { display:flex; align-items:center; gap:8px; padding:0 22px; font-size:15px; }
+
+    /* Member sub-header */
+    .subhead { background:#dde9e2; display:flex; align-items:center; justify-content:space-between; padding:12px 26px; }
+    .subhead .who { display:flex; align-items:center; gap:10px; font-size:22px; font-weight:700; }
+    .subhead .who .chk { color:var(--green); font-size:18px; }
+    .subhead .tz { color:#5b6471; font-size:14px; }
+
+    .wrap { background:#fff; min-height:calc(100vh - 54px); }
+    .pad { padding:18px 26px; }
+
+    /* Calendar strip */
+    .calhead { display:flex; align-items:center; gap:16px; margin-bottom:10px; }
+    .calhead .arrow { cursor:pointer; color:var(--accent); font-size:16px; user-select:none; }
+    .calhead .month { font-size:16px; font-weight:600; }
+    .calhead .today { color:var(--accent); cursor:pointer; font-size:14px; }
+    .cal { display:flex; border:1px solid var(--line); border-radius:4px; overflow-x:auto; }
+    .cal .d { flex:1 0 44px; min-width:44px; border-right:1px solid var(--line); text-align:center; cursor:pointer; padding-bottom:6px; position:relative; }
+    .cal .d:last-child { border-right:none; }
+    .cal .d .dow { font-size:11px; color:var(--muted); padding:4px 0 2px; }
+    .cal .d .num { font-size:14px; color:var(--ink); }
+    .cal .d.wknd .dow, .cal .d.wknd .num { color:var(--red); }
+    .cal .d .barbox { height:26px; display:flex; align-items:flex-end; justify-content:center; margin-top:4px; }
+    .cal .d .bar { width:60%; background:var(--green); border-radius:2px 2px 0 0; min-height:0; }
+    .cal .d.sel { outline:2px solid var(--sel); outline-offset:-2px; border-radius:3px; }
+
+    /* Summary panel */
+    .summary { display:flex; border:1px solid var(--line); border-radius:6px; margin:18px 0; overflow:hidden; }
+    .summary .left { background:var(--panel); padding:26px 30px; text-align:center; min-width:360px; flex:0 0 42%; }
+    .summary .left .date { color:#5b6471; font-size:16px; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .summary .left .big { font-size:58px; font-weight:800; color:#4a5460; line-height:1.1; margin:6px 0; }
+    .summary .left .sub { color:#7a828f; font-size:14px; }
+    .summary .left .sub b { color:var(--accent); font-weight:600; }
+    .summary .right { flex:1; padding:14px 20px; }
+    .summary .right .tabs { display:flex; gap:18px; justify-content:flex-end; border-bottom:1px solid var(--line); padding-bottom:8px; margin-bottom:10px; }
+    .summary .right .tabs span { font-size:14px; color:var(--muted); cursor:pointer; }
+    .summary .right .tabs span.active { color:var(--accent); font-weight:600; border-bottom:2px solid var(--accent); padding-bottom:8px; margin-bottom:-9px; }
+    .noterow { display:flex; justify-content:space-between; align-items:center; background:#fcfae6; border-left:3px solid var(--green); padding:12px 14px; border-radius:3px; margin-bottom:6px; }
+    .noterow .nl { color:#3a4452; } .noterow .nt { color:#5b6471; font-weight:600; }
+    .noterow.muted { background:#f7f8fa; border-left-color:var(--line); }
+
+    /* Hourly timeline */
+    .hours { display:flex; border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:24px; }
+    .hours .hr { flex:1; border-right:1px solid var(--line); text-align:center; font-size:11px; color:var(--muted); padding:18px 0 6px; position:relative; }
+    .hours .hr:last-child { border-right:none; }
+    .hours .hr.on { background:var(--green); color:#33421f; }
+
+    /* Activity periods + cards */
+    .period { margin-bottom:26px; }
+    .period .phead { display:flex; align-items:center; gap:8px; color:var(--red); font-size:18px; font-weight:700; margin-bottom:12px; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+    .card { border:1px solid var(--line); border-radius:4px; overflow:hidden; background:#fff; }
+    .card .chead { display:flex; align-items:center; justify-content:space-between; background:#eceef1; padding:7px 10px; font-size:13px; }
+    .card .chead .t { font-weight:600; } .card .chead .app { color:#5b6471; flex:1; text-align:center; }
+    .card .chead .act { display:flex; align-items:center; gap:5px; font-size:11px; color:#5b6471; }
+    .dot { width:12px; height:12px; border-radius:50%; background:#c2c8d0; }
+    .dot.green { background:#28c840; } .dot.amber { background:#f5a623; } .dot.red { background:#ff4d4d; }
+    .card img { width:100%; display:block; aspect-ratio:16/10; object-fit:cover; cursor:pointer; background:#000; }
+    .empty { color:var(--muted); padding:40px 0; text-align:center; }
+
+    .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; padding:30px; z-index:50; }
+    .lightbox img { max-width:100%; max-height:100%; border-radius:6px; }
+
+    /* Home / employee overview table */
+    .home-table { width:100%; border-collapse:collapse; }
+    .home-table th { font-size:14px; color:#3a4452; font-weight:600; padding:14px 12px; border-bottom:1px solid var(--line); text-align:left; }
+    .home-table th.c, .home-table td.c { text-align:center; }
+    .home-table td { padding:18px 12px; border-bottom:1px solid var(--line); font-size:15px; color:#3a4452; vertical-align:middle; }
+    .home-table tr.emp { cursor:pointer; }
+    .home-table tr.emp:hover { background:#f1f7f3; }
+    .emp-name { display:inline-flex; align-items:center; gap:10px; color:var(--accent); font-weight:700; font-size:19px; }
+    .emp-name .chk { color:var(--green); font-size:14px; }
+    .last-active { display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .last-active img { width:150px; height:96px; object-fit:cover; object-position:top; border:1px solid var(--line); border-radius:3px; background:#000; }
+    .last-active .ago { font-size:13px; color:#5b6471; align-self:flex-start; }
+    .col-time { color:var(--accent); font-weight:600; }
+    .trust-pill { display:inline-block; min-width:42px; padding:5px 10px; border-radius:999px; font-weight:700; font-size:14px; cursor:default; }
+    .trust-pill.green { background:#e3f6e8; color:#1e7e34; }
+    .trust-pill.amber { background:#fcf3d8; color:#b8860b; }
+    .trust-pill.orange { background:#ffe8d4; color:#c4551a; }
+    .trust-pill.red { background:#fbe3e3; color:#c0392b; }
+    .trust-lbl { display:block; font-size:10px; color:#8a93a0; margin-top:3px; }
+
+    /* Reports view */
+    .rep-filters { background:#eef3f0; border:1px solid var(--line); border-radius:6px; padding:16px 18px; margin-bottom:14px; }
+    .rep-row1 { display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap; margin-bottom:12px; }
+    .daterange { background:#fff; border:1px solid var(--line); border-radius:5px; padding:9px 14px; font-size:14px; color:#5b6471; min-width:200px; }
+    .presets { display:grid; grid-template-columns:auto auto; gap:2px 18px; font-size:14px; }
+    .presets a { color:var(--accent); cursor:pointer; }
+    .presets a.on { color:#0f2a20; font-weight:700; }
+    .rep-tz { margin-left:auto; color:#5b6471; font-size:14px; }
+    .rep-input { width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:5px; font-size:14px; margin-bottom:10px; background:#fff; color:#3a4452; }
+    .rep-types { display:flex; gap:18px; font-size:14px; margin:4px 0 12px; flex-wrap:wrap; }
+    .rep-types a { color:var(--accent); cursor:pointer; }
+    .rep-types a.on { font-weight:700; text-decoration:underline; }
+    .rep-actions { display:flex; align-items:center; gap:18px; justify-content:flex-end; }
+    .rep-actions a { color:var(--accent); cursor:pointer; font-size:14px; }
+    .show-btn { background:var(--green); color:#fff; border:none; padding:11px 26px; border-radius:5px; font-weight:700; font-size:14px; cursor:pointer; }
+    .show-btn:hover { background:var(--green-d); }
+    .rep-tabs { display:flex; gap:6px; border-bottom:1px solid var(--line); margin-bottom:20px; }
+    .rep-tabs span { padding:10px 16px; font-size:14px; color:var(--accent); cursor:pointer; }
+    .rep-tabs span.on { background:#fff; border:1px solid var(--line); border-bottom:1px solid #fff; border-radius:5px 5px 0 0; color:#0f2a20; font-weight:600; margin-bottom:-1px; }
+    .rep-apps { display:flex; align-items:center; gap:30px; padding:20px 0 30px; flex-wrap:wrap; }
+    .rep-total { min-width:200px; text-align:center; }
+    .rt-big { font-size:40px; font-weight:800; color:#4a5460; }
+    .rt-act { font-size:16px; color:#8a93a0; }
+    .rep-chart { display:flex; align-items:center; gap:26px; flex:1; justify-content:center; }
+    .donut { width:200px; height:200px; border-radius:50%; flex-shrink:0; position:relative; }
+    .donut::after { content:''; position:absolute; inset:30%; background:#fff; border-radius:50%; }
+    .legend { display:grid; grid-template-columns:1fr 1fr; gap:6px 18px; font-size:13px; }
+    .legend .lg { display:flex; align-items:center; gap:8px; color:#3a4452; }
+    .legend .sw { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+    .legend .lp { color:#5b6471; margin-left:auto; font-weight:600; }
+    .rep-table .rt-head { display:flex; background:#eef3f0; padding:12px 14px; font-weight:700; color:var(--accent); font-size:14px; border-radius:4px; }
+    .rep-table .rt-head span:first-child { flex:1; }
+    .rep-table .rt-head span, .rep-table .rrow span { width:120px; text-align:right; }
+    .rep-table .rt-head span:first-child, .rep-table .rrow span:first-child { width:auto; flex:1; text-align:left; }
+    .rep-table .rrow { display:flex; padding:14px; border-bottom:1px solid var(--line); font-size:15px; color:#3a4452; }
+    .rep-table .rrow b { color:#0f2a20; }
+
+    /* Admin settings */
+    .set-intro { background:#fcf3d8; border:1px solid #ecdca0; color:#7a5b00; padding:12px 16px; border-radius:8px; font-size:14px; margin-bottom:18px; max-width:760px; }
+    .set-row { display:flex; align-items:center; gap:14px; margin-bottom:18px; max-width:760px; }
+    .set-row label { font-size:14px; font-weight:600; color:#0f2a20; }
+    .sig { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:16px; border:1px solid var(--line); border-radius:10px; margin-bottom:12px; max-width:760px; background:#fff; }
+    .sig .info h4 { margin:0 0 4px; font-size:16px; color:#0f2a20; }
+    .sig .info p { margin:0; font-size:13px; color:var(--muted); }
+    .switch { position:relative; width:50px; height:28px; flex-shrink:0; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider { position:absolute; inset:0; background:#c2c8d0; border-radius:999px; transition:.2s; cursor:pointer; }
+    .slider::before { content:''; position:absolute; height:22px; width:22px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+    .switch input:checked + .slider { background:var(--green); }
+    .switch input:checked + .slider::before { transform:translateX(22px); }
+    .set-actions { display:flex; align-items:center; gap:16px; max-width:760px; margin-top:6px; }
+    .set-status { color:var(--green-d); font-size:14px; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <div class="tab" id="tabHome">My Home</div>
+    <div class="tab" id="tabMember"><span class="chk">✔</span><span id="navName">Member</span></div>
+    <div class="tab" id="tabReports">Reports <span class="caret">▾</span></div>
+    <div class="tab" id="tabSettings">⚙ Settings</div>
+    <div class="grow"></div>
+    <div class="org">LetsGetFunded <span class="caret">▾</span></div>
+  </div>
+
+  <div class="subhead">
+    <div id="subHome" style="font-size:22px;font-weight:700;color:#3a4452">Employee Dashboard</div>
+    <div id="subReports" style="display:none;font-size:22px;font-weight:700;color:#3a4452">Reports</div>
+    <div id="subSettings" style="display:none;font-size:22px;font-weight:700;color:#3a4452">Admin Settings</div>
+    <div id="subDay" class="who" style="display:none"><span class="chk">✔</span>
+      <select id="memberSel" style="font-size:20px;font-weight:700;border:none;background:transparent;cursor:pointer;"></select>
+    </div>
+    <div class="tz" id="tz">All times are UTC</div>
+  </div>
+
+  <div class="wrap">
+    <div class="pad">
+      <div id="homeView">
+        <table class="home-table">
+          <thead><tr>
+            <th>Company</th>
+            <th class="c">Last active</th>
+            <th class="c">Trust</th>
+            <th class="c">Today</th>
+            <th class="c">Yesterday</th>
+            <th class="c">This week</th>
+            <th class="c">This month</th>
+          </tr></thead>
+          <tbody id="empBody"></tbody>
+        </table>
+      </div>
+
+      <div id="dayView" style="display:none">
+      <div class="calhead">
+        <span class="arrow" id="prevM">◀</span>
+        <span class="month" id="monthLbl">—</span>
+        <span class="arrow" id="nextM">▶</span>
+        <span class="today" id="todayBtn">Today</span>
+      </div>
+      <div class="cal" id="cal"></div>
+
+      <div class="summary">
+        <div class="left">
+          <div class="date" id="dayDate">—</div>
+          <div class="big" id="dayBig">0h 0m</div>
+          <div class="sub">Week <b id="weekTot">0m</b> &nbsp;•&nbsp; Month <b id="monthTot">0m</b></div>
+        </div>
+        <div class="right">
+          <div class="tabs"><span class="active">Tasks</span><span>Apps &amp; URLs</span></div>
+          <div id="notes"></div>
+        </div>
+      </div>
+
+      <div class="hours" id="hours"></div>
+
+      <div id="periods"><div class="empty">No screenshots for this day.</div></div>
+      </div><!-- /dayView -->
+
+      <div id="reportView" style="display:none">
+        <div class="rep-filters">
+          <div class="rep-row1">
+            <div class="daterange" id="repRange">—</div>
+            <div class="presets">
+              <a data-preset="today">Today</a>
+              <a data-preset="thismonth">This Month</a>
+              <a data-preset="yesterday">Yesterday</a>
+              <a data-preset="lastmonth">Last Month</a>
+              <a data-preset="thisweek" class="on">This Week</a>
+              <a data-preset="thisyear">This Year</a>
+              <a data-preset="lastweek">Last Week</a>
+              <a data-preset="lastyear">Last Year</a>
+            </div>
+            <div class="rep-tz" id="repTz">Report times are UTC</div>
+          </div>
+          <select id="repEmployee" class="rep-input"></select>
+          <input class="rep-input" placeholder="Select projects" disabled />
+          <input class="rep-input" id="repNote" placeholder="Note contains text" />
+          <div class="rep-types">
+            <a>Summary by project</a><a>Summary by employee</a><a>Daily by employee</a><a>Detailed</a><a class="on">Apps &amp; URLs</a>
+          </div>
+          <div class="rep-actions">
+            <a id="repExcel">⬇ Excel</a><a id="repPdf">⬇ PDF</a>
+            <button class="show-btn" id="repShow">SHOW REPORT</button>
+          </div>
+        </div>
+        <div class="rep-tabs">
+          <span>Timeline</span><span>Employees</span><span>Projects</span><span>Notes</span><span class="on">Apps &amp; URLs</span>
+        </div>
+        <div class="rep-apps">
+          <div class="rep-total"><div class="rt-big" id="repTotal">0h 0m</div><div class="rt-act" id="repAct">0%</div></div>
+          <div class="rep-chart"><div class="donut" id="repDonut"></div><div class="legend" id="repLegend"></div></div>
+        </div>
+        <div class="rep-table">
+          <div class="rt-head"><span>Employee</span><span>Duration</span><span>Activity</span></div>
+          <div id="repTableBody"></div>
+        </div>
+      </div><!-- /reportView -->
+
+      <div id="settingsView" style="display:none">
+        <div class="set-intro">TrustScore anti-manipulation signals, configured <strong>per user type</strong>. Turn off any that don't fit a role — e.g. <strong>Tab Cycling</strong> and <strong>Stale Screen</strong> often misfire for software developers.</div>
+        <div class="set-row">
+          <label>User type</label>
+          <select id="userTypeSel" class="rep-input" style="max-width:280px;margin-bottom:0"></select>
+        </div>
+        <div id="signalList"></div>
+        <div class="set-actions">
+          <span id="setStatus" class="set-status"></span>
+          <button id="saveSettings" class="show-btn">Save settings</button>
+        </div>
+      </div><!-- /settingsView -->
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox"><img id="lightboxImg" alt="" /></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id)
+    let agentId = null
+    let view = new Date()        // month being viewed
+    let sel = new Date()         // selected day
+    sel.setHours(0,0,0,0)
+
+    const MON = ['January','February','March','April','May','June','July','August','September','October','November','December']
+    const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    const hm = (s) => { const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?`${h}h ${m}m`:`${m}m` }
+    const ampm = (ts) => new Date(ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}).toLowerCase().replace(' ','')
+    const ago = (ts) => {
+      if (!ts) return '—'
+      const s = Math.round((Date.now()-ts)/1000)
+      if (s < 45) return 'a few seconds ago'
+      if (s < 90) return 'a minute ago'
+      if (s < 3600) return Math.floor(s/60)+' minutes ago'
+      if (s < 7200) return 'an hour ago'
+      if (s < 86400) return Math.floor(s/3600)+' hours ago'
+      if (s < 172800) return 'a day ago'
+      return Math.floor(s/86400)+' days ago'
+    }
+    let currentView = 'home'
+
+    // timezone label
+    const off = -new Date().getTimezoneOffset()/60
+    $('tz').textContent = 'All times are UTC' + (off>=0?'+':'') + off
+
+    async function loadMembers() {
+      const agents = await fetch('/api/agents').then(r=>r.json())
+      const sel = $('memberSel')
+      sel.innerHTML = agents.map(a=>`<option value="${a.id}">${a.name||a.id.slice(0,8)}</option>`).join('') || '<option>No agents</option>'
+      if (agents.length && !agentId) { agentId = agents[0].id; $('navName').textContent = agents[0].name || agentId.slice(0,8) }
+      sel.onchange = () => showDay(sel.value)
+    }
+
+    // Home employee overview table.
+    async function loadOverview() {
+      const rows = await fetch('/api/overview').then(r=>r.json())
+      $('empBody').innerHTML = rows.length ? rows.map(r=>`
+        <tr class="emp" data-id="${r.agentId}">
+          <td><span class="emp-name"><span class="chk">●</span>${esc(r.name)}</span></td>
+          <td class="c"><div class="last-active">
+            <div class="ago">${ago(r.lastActive)}</div>
+            ${r.lastShotUrl ? `<img src="${r.lastShotUrl}" />` : '<div style="width:150px;height:96px;background:#eef3f0;border-radius:3px"></div>'}
+          </div></td>
+          <td class="c"><span class="trust-pill ${trustClass(r.trustScore)}" title="${(r.trustFlags||[]).map(esc).join(' · ')||'No flags'}">${r.trustScore}</span><span class="trust-lbl">${trustLabel(r.trustScore)}</span></td>
+          <td class="c col-time">${hm(r.today)}</td>
+          <td class="c col-time">${hm(r.yesterday)}</td>
+          <td class="c col-time">${hm(r.week)}</td>
+          <td class="c col-time">${hm(r.month)}</td>
+        </tr>`).join('') : '<tr><td colspan="6" class="empty">No employees yet.</td></tr>'
+      ;[...document.querySelectorAll('tr.emp')].forEach(el=>el.onclick=()=>showDay(el.dataset.id))
+    }
+
+    function setViews(view) {
+      currentView = view
+      $('homeView').style.display = view==='home' ? 'block':'none'
+      $('dayView').style.display = view==='day' ? 'block':'none'
+      $('reportView').style.display = view==='report' ? 'block':'none'
+      $('settingsView').style.display = view==='settings' ? 'block':'none'
+      $('subHome').style.display = view==='home' ? 'block':'none'
+      $('subDay').style.display = view==='day' ? 'flex':'none'
+      $('subReports').style.display = view==='report' ? 'block':'none'
+      $('subSettings').style.display = view==='settings' ? 'block':'none'
+      $('tabHome').classList.toggle('active', view==='home')
+      $('tabMember').classList.toggle('active', view==='day')
+      $('tabReports').classList.toggle('active', view==='report')
+      $('tabSettings').classList.toggle('active', view==='settings')
+    }
+
+    // ---- Admin settings ----
+    const SIGNAL_DEFS = [
+      { key:'jiggler', name:'Mouse Jiggler Detection', desc:'Flags mouse jigglers — constant speed, circular paths, or movement with zero clicks/keystrokes.' },
+      { key:'fakeTyping', name:'Fake Keyboard Activity', desc:'Flags auto-typers — constant timing, no backspaces, no natural pauses. Turning this off also stops keystroke-timing capture.' },
+      { key:'cycling', name:'Tab Cycling / Fake Multitasking', desc:'Flags rapid window cycling. ⚠ Often misfires for developers (editor ↔ terminal ↔ browser).' },
+      { key:'stale', name:'Stale Screen', desc:'Flags an unchanging screen for long periods. ⚠ Often misfires for developers (builds, reading, calls).' },
+      { key:'mismatch', name:'Input-Activity Mismatch', desc:'Meta-signal: reported activity but no real output (static screen + no keystrokes).' },
+    ]
+    let allSettings = null
+    function renderToggles(type) {
+      const signals = allSettings.signalsByType[type] || {}
+      $('signalList').innerHTML = SIGNAL_DEFS.map(s => `
+        <div class="sig">
+          <div class="info"><h4>${s.name}</h4><p>${s.desc}</p></div>
+          <label class="switch"><input type="checkbox" data-key="${s.key}" ${signals[s.key] ? 'checked' : ''}><span class="slider"></span></label>
+        </div>`).join('')
+    }
+    async function showSettings() {
+      setViews('settings')
+      $('setStatus').textContent = ''
+      allSettings = await fetch('/api/settings').then(r=>r.json())
+      const sel = $('userTypeSel')
+      sel.innerHTML = allSettings.types.map(t => `<option>${t}</option>`).join('')
+      renderToggles(sel.value)
+      sel.onchange = () => { renderToggles(sel.value); $('setStatus').textContent = '' }
+    }
+    async function saveSettings() {
+      const type = $('userTypeSel').value
+      const signals = {}
+      document.querySelectorAll('#signalList input[data-key]').forEach(i => signals[i.dataset.key] = i.checked)
+      const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, signals }) }).then(r=>r.json())
+      allSettings.signalsByType[type] = r.signals
+      $('setStatus').textContent = `✓ Saved for "${type}" — applies to those agents within ~15s`
+    }
+    function showHome() { setViews('home'); loadOverview() }
+    function showDay(id) {
+      agentId = id
+      const opt = [...$('memberSel').options].find(o=>o.value===id)
+      $('navName').textContent = opt ? opt.text : id.slice(0,8)
+      if (opt) $('memberSel').value = id
+      setViews('day'); refreshAll()
+    }
+
+    // ---- Reports ----
+    const APP_COLORS = ['#3b6fd6','#d6453b','#e8a33b','#39a85a','#8b3bd6','#3bc0d6','#d63b9e','#7a8a3b','#b0563b','#5b6471','#c2c8d0']
+    let repFrom = null, repTo = null
+    const fmtD = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(2)}`
+    const apiD = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+
+    function showReport() {
+      $('repEmployee').innerHTML = $('memberSel').innerHTML
+      if (agentId) $('repEmployee').value = agentId
+      $('repTz').textContent = 'Report times are UTC' + (off>=0?'+':'') + off
+      setViews('report')
+      if (!repFrom) setPreset('thisweek'); else loadReport()
+    }
+
+    function setPreset(p) {
+      const now = new Date(); now.setHours(0,0,0,0)
+      let f = new Date(now), t = new Date(now)
+      const dow = (now.getDay()+6)%7 // Monday = 0
+      if (p==='yesterday') { f.setDate(f.getDate()-1); t = new Date(f) }
+      else if (p==='thisweek') { f.setDate(f.getDate()-dow); t = new Date(f); t.setDate(t.getDate()+6) }
+      else if (p==='lastweek') { f.setDate(f.getDate()-dow-7); t = new Date(f); t.setDate(t.getDate()+6) }
+      else if (p==='thismonth') { f = new Date(now.getFullYear(),now.getMonth(),1); t = new Date(now.getFullYear(),now.getMonth()+1,0) }
+      else if (p==='lastmonth') { f = new Date(now.getFullYear(),now.getMonth()-1,1); t = new Date(now.getFullYear(),now.getMonth(),0) }
+      else if (p==='thisyear') { f = new Date(now.getFullYear(),0,1); t = new Date(now.getFullYear(),11,31) }
+      else if (p==='lastyear') { f = new Date(now.getFullYear()-1,0,1); t = new Date(now.getFullYear()-1,11,31) }
+      repFrom = f; repTo = t
+      ;[...document.querySelectorAll('.presets a')].forEach(a=>a.classList.toggle('on', a.dataset.preset===p))
+      $('repRange').textContent = `${fmtD(f)}  ▸  ${fmtD(t)}`
+      loadReport()
+    }
+
+    async function loadReport() {
+      const id = $('repEmployee').value || agentId
+      if (!id || !repFrom) return
+      const data = await fetch(`/api/report/apps?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}`).then(r=>r.json())
+      $('repTotal').textContent = hm(data.totalWorked)
+      $('repAct').textContent = data.activity + '%'
+      let acc = 0; const segs = []
+      data.apps.forEach((a,i)=>{ const c = APP_COLORS[i%APP_COLORS.length]; segs.push(`${c} ${acc}% ${acc+a.pct}%`); acc += a.pct })
+      $('repDonut').style.background = data.apps.length ? `conic-gradient(${segs.join(',')})` : '#eef3f0'
+      $('repLegend').innerHTML = data.apps.map((a,i)=>`<div class="lg"><span class="sw" style="background:${APP_COLORS[i%APP_COLORS.length]}"></span>${esc(a.app)}<span class="lp">${a.pct}%</span></div>`).join('')
+      const empName = ($('repEmployee').options[$('repEmployee').selectedIndex]||{}).text || ''
+      $('repTableBody').innerHTML = `<div class="rrow"><span><b>${esc(empName)}</b></span><span>${hm(data.totalWorked)}</span><span>${data.activity}%</span></div>`
+      window._repData = data
+    }
+
+    async function loadCalendar() {
+      $('monthLbl').textContent = `${MON[view.getMonth()]} ${view.getFullYear()}`
+      if (!agentId) return
+      const data = await fetch(`/api/calendar?agentId=${agentId}&year=${view.getFullYear()}&month=${view.getMonth()+1}`).then(r=>r.json())
+      const max = Math.max(...data.days.map(d=>d.seconds), 8*3600) // scale to >=8h
+      $('cal').innerHTML = data.days.map(d=>{
+        const dt = new Date(d.date); const dow = (dt.getDay()+6)%7
+        const wknd = dow>=5
+        const isSel = d.date === sel.getTime()
+        const h = d.seconds>0 ? Math.max(3, Math.round(d.seconds/max*24)) : 0
+        return `<div class="d ${wknd?'wknd':''} ${isSel?'sel':''}" data-date="${d.date}">
+          <div class="dow">${DOW[dow]}</div>
+          <div class="num">${d.day}</div>
+          <div class="barbox"><div class="bar" style="height:${h}px"></div></div>
+        </div>`
+      }).join('')
+      ;[...$('cal').querySelectorAll('.d')].forEach(el=>el.onclick=()=>{ sel=new Date(Number(el.dataset.date)); loadCalendar(); loadDay() })
+    }
+
+    function groupPeriods(shots) {
+      const GAP = 12*60*1000, periods = []
+      let cur = null
+      for (const s of shots) {
+        if (!cur || s.capturedAt - cur.end > GAP) { cur = { start:s.capturedAt, end:s.capturedAt, shots:[] }; periods.push(cur) }
+        cur.shots.push(s); cur.end = s.capturedAt
+      }
+      return periods.reverse() // newest period first
+    }
+
+    async function loadDay() {
+      if (!agentId) return
+      const d = await fetch(`/api/day?agentId=${agentId}&date=${ymd(sel)}`).then(r=>r.json())
+      $('dayDate').innerHTML = new Date(sel).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}) + ' <span style="color:#e8a33b">◑</span>'
+      $('dayBig').textContent = hm(d.dayTotal)
+      $('weekTot').textContent = hm(d.weekTotal)
+      $('monthTot').textContent = hm(d.monthTotal)
+      $('notes').innerHTML = d.notes.length
+        ? d.notes.map((n,i)=>`<div class="noterow ${i>0?'muted':''}"><span class="nl">${esc(n.note)}</span><span class="nt">${hm(n.seconds)}</span></div>`).join('')
+        : '<div class="noterow muted"><span class="nl">No activity</span><span class="nt">0m</span></div>'
+
+      const maxH = Math.max(...d.hours, 1)
+      $('hours').innerHTML = d.hours.map((s,h)=>{
+        const lbl = (h%12===0?12:h%12) + (h<12?'am':'pm')
+        return `<div class="hr ${s>0?'on':''}" title="${hm(s)}">${lbl}</div>`
+      }).join('')
+
+      const periods = groupPeriods(d.screenshots)
+      $('periods').innerHTML = periods.length ? periods.map(p=>{
+        const acts = p.shots.map(s=>s.activityPct).filter(v=>v!=null)
+        const avg = acts.length ? Math.round(acts.reduce((a,b)=>a+b,0)/acts.length) : null
+        return `
+        <div class="period">
+          <div class="phead">${ampm(p.start)} - ${ampm(p.end)} <span class="dot ${actClass(avg)}" title="${avg==null?'—':avg+'% active'}"></span>${avg==null?'':`<span style="font-size:13px;color:#5b6471;font-weight:600">${avg}%</span>`}</div>
+          <div class="cards">${p.shots.map(s=>`
+            <div class="card">
+              <div class="chead"><span class="t">${ampm(s.capturedAt)}</span><span class="app">${esc(s.activeApp||'')}</span><span class="act"><span class="dot ${actClass(s.activityPct)}"></span>${s.activityPct==null?'':s.activityPct+'%'}</span></div>
+              <img src="${s.url}" loading="lazy" onclick="zoom('${s.url}')" />
+            </div>`).join('')}</div>
+        </div>`}).join('') : '<div class="empty">No screenshots for this day.</div>'
+    }
+    const esc = (s) => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+    // Activity color: green >=50%, amber 25-49%, red below, grey if unknown.
+    const actClass = (pct) => pct==null ? '' : pct>=50 ? 'green' : pct>=25 ? 'amber' : 'red'
+    const trustClass = (t) => t>=70 ? 'green' : t>=50 ? 'amber' : t>=25 ? 'orange' : 'red'
+    const trustLabel = (t) => t>=85 ? 'Trusted' : t>=70 ? 'Normal' : t>=50 ? 'Suspicious' : t>=25 ? 'Flagged' : 'Manipulating'
+    function zoom(u){ $('lightboxImg').src=u; $('lightbox').style.display='flex' }
+    $('lightbox').onclick = () => $('lightbox').style.display='none'
+
+    function refreshAll(){ loadCalendar(); loadDay() }
+    $('prevM').onclick = () => { view.setMonth(view.getMonth()-1); loadCalendar() }
+    $('nextM').onclick = () => { view.setMonth(view.getMonth()+1); loadCalendar() }
+    $('todayBtn').onclick = () => { view=new Date(); sel=new Date(); sel.setHours(0,0,0,0); refreshAll() }
+    $('tabHome').onclick = showHome
+    $('tabMember').onclick = () => { if (agentId) showDay(agentId) }
+    $('tabReports').onclick = showReport
+    $('tabSettings').onclick = showSettings
+    $('saveSettings').onclick = saveSettings
+
+    // Report interactions
+    $('repShow').onclick = loadReport
+    $('repEmployee').onchange = loadReport
+    ;[...document.querySelectorAll('.presets a')].forEach(a => a.onclick = () => setPreset(a.dataset.preset))
+    $('repExcel').onclick = () => {
+      const d = window._repData; if (!d) return
+      const csv = 'App,Percent,Duration(s)\n' + d.apps.map(a=>`${a.app},${a.pct},${a.seconds}`).join('\n')
+      const u = URL.createObjectURL(new Blob([csv], {type:'text/csv'}))
+      const x = document.createElement('a'); x.href = u; x.download = 'delegent-report.csv'; x.click()
+    }
+    $('repPdf').onclick = () => window.print()
+
+    // Refresh whichever live view is open (reports stay put).
+    setInterval(() => { if (currentView==='home') loadOverview(); else if (currentView==='day') loadDay() }, 5000)
+    ;(async () => { await loadMembers(); showHome() })()
+  </script>
+</body>
+</html>

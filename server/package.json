@@ -1,0 +1,17 @@
+{
+  "name": "delegent-server",
+  "version": "0.1.0",
+  "description": "Delegent monitoring backend — receives and stores agent screenshots + activity.",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

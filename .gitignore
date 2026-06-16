@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build / release artifacts
+release/
+dist/
+out/
+
+# Server runtime data (sensitive — captured screenshots + DB)
+server/uploads/
+server/data.sqlite
+server/data.sqlite-shm
+server/data.sqlite-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local Claude settings
+**/.claude/settings.local.json

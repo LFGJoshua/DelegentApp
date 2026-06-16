@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download Delegent</title>
+  <style>
+    :root { --green-900:#0e3d2d; --green:#15803d; --green2:#16a34a; --ink:#0f2a20; --muted:#5f6f67; --line:#e4ebe7; --bg:#f5f8f6; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; color:var(--ink); background:var(--bg); }
+    .hero { background:linear-gradient(160deg,#0e3d2d,#125737); color:#fff; padding:70px 24px 90px; text-align:center; }
+    .badge { display:inline-block; background:#fff; color:var(--green-900); font-weight:800; letter-spacing:1px; padding:8px 16px; border-radius:8px; font-size:14px; }
+    .badge small { display:block; font-size:10px; letter-spacing:2px; color:var(--green); }
+    h1 { font-size:44px; margin:26px 0 10px; }
+    .sub { font-size:18px; color:#bfe3cd; max-width:620px; margin:0 auto 34px; line-height:1.5; }
+    .dl-btn { display:inline-flex; align-items:center; gap:12px; background:#fff; color:var(--green-900); font-size:18px; font-weight:700;
+      padding:16px 34px; border-radius:12px; text-decoration:none; box-shadow:0 12px 30px rgba(0,0,0,.25); transition:.15s; }
+    .dl-btn:hover { transform:translateY(-2px); }
+    .dl-meta { color:#9fcbb1; font-size:13px; margin-top:14px; }
+    .auto { display:inline-flex; align-items:center; gap:8px; margin-top:30px; background:rgba(255,255,255,.12); padding:9px 18px; border-radius:999px; font-size:14px; color:#dff3e8; }
+
+    .features { max-width:980px; margin:-50px auto 0; padding:0 24px 70px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px; box-shadow:0 6px 20px rgba(14,61,45,.06); }
+    .card .ic { width:44px; height:44px; border-radius:10px; background:#e7f4ec; color:var(--green); display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:14px; }
+    .card h3 { margin:0 0 6px; font-size:17px; }
+    .card p { margin:0; color:var(--muted); font-size:14px; line-height:1.5; }
+    .steps { max-width:980px; margin:0 auto; padding:0 24px 70px; }
+    .steps h2 { font-size:24px; }
+    .step { display:flex; gap:14px; align-items:flex-start; margin:14px 0; }
+    .step .n { flex-shrink:0; width:30px; height:30px; border-radius:50%; background:var(--green); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; }
+    .step p { margin:3px 0; color:#3a4452; }
+    .foot { text-align:center; color:var(--muted); padding:24px; border-top:1px solid var(--line); font-size:13px; }
+    .foot a { color:var(--green); text-decoration:none; }
+    @media (max-width:760px){ .features{grid-template-columns:1fr} h1{font-size:34px} }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="badge">LETS GET FUNDED<small>TALENT PORTAL</small></div>
+    <h1>Delegent for Windows</h1>
+    <div class="sub">Track your work time, capture activity, and stay in sync with the dashboard — a lightweight desktop timer that runs quietly in the background.</div>
+    <a class="dl-btn" href="/download/app" id="dlBtn">⬇&nbsp; Download for Windows</a>
+    <div class="dl-meta" id="dlMeta">Windows 10 / 11 · 64-bit</div>
+    <div class="auto">🔄 Installs once, then <strong>updates itself automatically</strong></div>
+  </div>
+
+  <div class="features">
+    <div class="card"><div class="ic">⏱️</div><h3>Play / Pause timer</h3><p>One click to start tracking. Pause anytime — your time only counts while you're working.</p></div>
+    <div class="card"><div class="ic">📊</div><h3>Productivity light</h3><p>A live activity light turns green when you're active 50%+, so you always know your focus level.</p></div>
+    <div class="card"><div class="ic">🔄</div><h3>Auto-updates</h3><p>The app checks for new versions on launch and installs them silently — no reinstalling, ever.</p></div>
+  </div>
+
+  <div class="steps">
+    <h2>Getting started</h2>
+    <div class="step"><div class="n">1</div><p><strong>Download &amp; run</strong> the installer above. Delegent installs for your user (no admin needed) and adds a tray icon.</p></div>
+    <div class="step"><div class="n">2</div><p><strong>Open Delegent</strong> from the tray or Start menu, type what you're working on, and press <strong>▶ Play</strong>.</p></div>
+    <div class="step"><div class="n">3</div><p>Your time, screenshots, and activity appear on the <a href="/" style="color:var(--green)">team dashboard</a> in real time.</p></div>
+    <div class="step"><div class="n">4</div><p><strong>Stay current automatically</strong> — when a new version ships, Delegent downloads and applies it on the next restart.</p></div>
+  </div>
+
+  <div class="foot">© Delegent · <a href="/">Open dashboard</a> · <a href="/updates/latest.yml">Update feed</a></div>
+
+  <script>
+    // Show the installer size/version if available.
+    fetch('/updates/latest.yml').then(r=>r.ok?r.text():'').then(t=>{
+      const v = (t.match(/version:\s*([\d.]+)/)||[])[1]
+      const size = (t.match(/size:\s*(\d+)/)||[])[1]
+      const meta = document.getElementById('dlMeta')
+      let s = 'Windows 10 / 11 · 64-bit'
+      if (v) s += ' · v' + v
+      if (size) s += ' · ' + (size/1048576).toFixed(0) + ' MB'
+      meta.textContent = s
+    }).catch(()=>{})
+  </script>
+</body>
+</html>

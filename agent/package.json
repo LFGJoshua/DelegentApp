@@ -1,0 +1,53 @@
+{
+  "name": "delegent-agent",
+  "version": "0.1.0",
+  "description": "Delegent monitoring agent — captures the screen on an interval and uploads to the backend.",
+  "private": true,
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "node scripts/launch.cjs",
+    "dist": "electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "node-global-key-listener": "^0.3.0"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "io.delegent.agent",
+    "productName": "Delegent",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "electron/keyhook.ps1"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "Delegent-Setup-${version}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "http://localhost:4000/updates"
+      }
+    ]
+  }
+}
