@@ -14,7 +14,7 @@ services:
       - key: COOKIE_SECURE
         value: "1"            # Render serves over HTTPS
       - key: SUPABASE_BUCKET
-        value: screenshots
+        value: Delegent-Screenshots
       # Secrets — set these in the Render dashboard (not committed):
       - key: DATABASE_URL
         sync: false
