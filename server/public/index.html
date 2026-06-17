@@ -156,6 +156,13 @@
     .switch input:checked + .slider::before { transform:translateX(22px); }
     .set-actions { display:flex; align-items:center; gap:16px; max-width:760px; margin-top:6px; }
     .set-status { color:var(--green-d); font-size:14px; font-weight:600; }
+
+    /* User/role nav + users table */
+    .role-badge { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#9ad9b4; }
+    .users-sel { padding:7px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; background:#fff; color:#3a4452; }
+    .urow-save { background:var(--green); color:#fff; border:none; padding:7px 16px; border-radius:5px; font-weight:600; font-size:13px; cursor:pointer; }
+    .urow-save:hover { background:var(--green-d); }
+    .you-tag { font-size:11px; color:#8a93a0; margin-left:8px; }
   </style>
 </head>
 <body>
@@ -164,14 +171,18 @@
     <div class="tab" id="tabMember"><span class="chk">✔</span><span id="navName">Member</span></div>
     <div class="tab" id="tabReports">Reports <span class="caret">▾</span></div>
     <div class="tab" id="tabSettings">⚙ Settings</div>
+    <div class="tab" id="tabUsers">👥 Users</div>
     <div class="grow"></div>
-    <div class="org">LetsGetFunded <span class="caret">▾</span></div>
+    <div class="org"><span id="meName">—</span> · <span id="meRole" class="role-badge">—</span>
+      <span id="logoutBtn" style="margin-left:14px;cursor:pointer;color:#9ad9b4;">Log out</span>
+    </div>
   </div>
 
   <div class="subhead">
     <div id="subHome" style="font-size:22px;font-weight:700;color:#3a4452">Employee Dashboard</div>
     <div id="subReports" style="display:none;font-size:22px;font-weight:700;color:#3a4452">Reports</div>
     <div id="subSettings" style="display:none;font-size:22px;font-weight:700;color:#3a4452">Admin Settings</div>
+    <div id="subUsers" style="display:none;font-size:22px;font-weight:700;color:#3a4452">Users &amp; Roles</div>
     <div id="subDay" class="who" style="display:none"><span class="chk">✔</span>
       <select id="memberSel" style="font-size:20px;font-weight:700;border:none;background:transparent;cursor:pointer;"></select>
     </div>
@@ -273,6 +284,17 @@
           <button id="saveSettings" class="show-btn">Save settings</button>
         </div>
       </div><!-- /settingsView -->
+
+      <div id="usersView" style="display:none">
+        <div class="set-intro">Assign each account a <strong>Role</strong> (Admin can see everyone &amp; change settings; Employee sees only their own data) and a <strong>signal profile</strong> that controls which TrustScore signals apply to them.</div>
+        <table class="home-table">
+          <thead><tr>
+            <th>User</th><th>Email</th><th class="c">Role</th><th class="c">Signal profile</th><th class="c"></th>
+          </tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+        <div class="set-status" id="usersStatus" style="margin-top:14px"></div>
+      </div><!-- /usersView -->
     </div>
   </div>
 
@@ -280,6 +302,19 @@
 
   <script>
     const $ = (id) => document.getElementById(id)
+
+    // Any API call that comes back 401 means the session is gone → bounce to login.
+    const _fetch = window.fetch.bind(window)
+    window.fetch = async (url, opts) => {
+      const res = await _fetch(url, opts)
+      if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/') && !url.includes('/auth/')) {
+        location.href = '/login.html'
+      }
+      return res
+    }
+
+    let currentUser = null
+    const ALL_TYPES = ['Default', 'Developer', 'Virtual Assistant', 'Data Entry', 'Designer']
     let agentId = null
     let view = new Date()        // month being viewed
     let sel = new Date()         // selected day
@@ -340,14 +375,47 @@
       $('dayView').style.display = view==='day' ? 'block':'none'
       $('reportView').style.display = view==='report' ? 'block':'none'
       $('settingsView').style.display = view==='settings' ? 'block':'none'
+      $('usersView').style.display = view==='users' ? 'block':'none'
       $('subHome').style.display = view==='home' ? 'block':'none'
       $('subDay').style.display = view==='day' ? 'flex':'none'
       $('subReports').style.display = view==='report' ? 'block':'none'
       $('subSettings').style.display = view==='settings' ? 'block':'none'
+      $('subUsers').style.display = view==='users' ? 'block':'none'
       $('tabHome').classList.toggle('active', view==='home')
       $('tabMember').classList.toggle('active', view==='day')
       $('tabReports').classList.toggle('active', view==='report')
       $('tabSettings').classList.toggle('active', view==='settings')
+      $('tabUsers').classList.toggle('active', view==='users')
+    }
+
+    // ---- Users & roles (admin) ----
+    async function showUsers() {
+      setViews('users')
+      $('usersStatus').textContent = ''
+      const users = await fetch('/api/users').then(r => r.json())
+      $('usersBody').innerHTML = users.map(u => `
+        <tr>
+          <td><span class="emp-name"><span class="chk">●</span>${esc(u.name || u.email)}</span>${u.id===currentUser.id?'<span class="you-tag">(you)</span>':''}</td>
+          <td>${esc(u.email)}</td>
+          <td class="c"><select class="users-sel" data-role="${u.id}">
+            <option value="employee"${u.role==='employee'?' selected':''}>Employee</option>
+            <option value="admin"${u.role==='admin'?' selected':''}>Admin</option>
+          </select></td>
+          <td class="c"><select class="users-sel" data-type="${u.id}">
+            ${ALL_TYPES.map(t=>`<option${u.userType===t?' selected':''}>${t}</option>`).join('')}
+          </select></td>
+          <td class="c"><button class="urow-save" data-save="${u.id}">Save</button></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="empty">No users yet.</td></tr>'
+      $('usersBody').querySelectorAll('[data-save]').forEach(b => b.onclick = () => saveUser(b.dataset.save))
+    }
+    async function saveUser(id) {
+      const role = $('usersBody').querySelector(`[data-role="${id}"]`).value
+      const userType = $('usersBody').querySelector(`[data-type="${id}"]`).value
+      const r = await fetch('/api/users/' + id, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role, userType }) })
+      const data = await r.json()
+      $('usersStatus').textContent = r.ok ? `✓ Saved ${esc(data.user.name || data.user.email)} — ${data.user.role}, ${data.user.userType}` : '⚠ ' + (data.error || 'failed')
+      // Demoted yourself? Reload so the UI drops to employee scope.
+      if (r.ok && id === currentUser.id && role !== 'admin') setTimeout(() => location.reload(), 900)
     }
 
     // ---- Admin settings ----
@@ -515,7 +583,9 @@
     $('tabMember').onclick = () => { if (agentId) showDay(agentId) }
     $('tabReports').onclick = showReport
     $('tabSettings').onclick = showSettings
+    $('tabUsers').onclick = showUsers
     $('saveSettings').onclick = saveSettings
+    $('logoutBtn').onclick = async () => { await fetch('/api/auth/logout', { method:'POST' }); location.href = '/login.html' }
 
     // Report interactions
     $('repShow').onclick = loadReport
@@ -531,7 +601,31 @@
 
     // Refresh whichever live view is open (reports stay put).
     setInterval(() => { if (currentView==='home') loadOverview(); else if (currentView==='day') loadDay() }, 5000)
-    ;(async () => { await loadMembers(); showHome() })()
+
+    // Admins see the team; employees are scoped to their own data.
+    function applyRole() {
+      const admin = currentUser.role === 'admin'
+      $('meName').textContent = currentUser.name || currentUser.email
+      $('meRole').textContent = admin ? 'Admin' : 'Employee'
+      $('tabHome').style.display = admin ? '' : 'none'
+      $('tabSettings').style.display = admin ? '' : 'none'
+      $('tabUsers').style.display = admin ? '' : 'none'
+    }
+
+    async function boot() {
+      let me
+      try {
+        const r = await _fetch('/api/auth/me')
+        if (!r.ok) { location.href = '/login.html'; return }
+        me = (await r.json()).user
+      } catch { location.href = '/login.html'; return }
+      currentUser = me
+      applyRole()
+      await loadMembers()
+      if (me.role === 'admin') showHome()
+      else showDay(me.id)   // employees land on (and are locked to) their own day
+    }
+    boot()
   </script>
 </body>
 </html>
