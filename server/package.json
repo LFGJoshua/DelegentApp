@@ -10,8 +10,9 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
     "cors": "^2.8.5",
-    "express": "^4.19.2"
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "pg": "^8.21.0"
   }
 }

@@ -58,6 +58,8 @@ function sampleActivity() {
 
 // Timer / work-session state.
 const state = {
+  authed: false,      // is a user signed in?
+  user: null,         // { id, email, name, role, userType }
   working: false,
   accumulatedMs: 0,   // completed run-time this session (sums across pauses)
   lastResumeAt: null, // when the current running stretch began
@@ -75,12 +77,18 @@ const state = {
   enabledSignals: { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true },
 }
 
-// Pull this user type's signal on/off settings from the server.
+// Pull the signed-in user's signal profile from the server. The server resolves
+// it from the account's admin-assigned user_type, so role/type changes apply
+// without reconfiguring the agent.
 async function fetchSettings() {
+  if (!config.token) return
   try {
-    const type = encodeURIComponent(config.userType || 'Default')
-    const res = await fetch(serverBase() + '/api/settings?type=' + type)
-    if (res.ok) { const j = await res.json(); if (j.signals) state.enabledSignals = j.signals }
+    const res = await authFetch('/api/my-signals')
+    if (res.ok) {
+      const j = await res.json()
+      if (j.signals) state.enabledSignals = j.signals
+      if (j.userType) config.userType = j.userType
+    }
   } catch {}
 }
 
@@ -125,15 +133,100 @@ let config = {
   intervalSec: 60,
   autoStart: true,  // start capturing automatically on launch
   userType: 'Default', // which signal profile applies (Developer, Virtual Assistant, …)
+  token: null,         // login session token (Bearer) for the signed-in account
   ...loadConfig(),
-}
-if (!config.agentId) {
-  config.agentId = randomUUID()
-  if (!config.agentName) config.agentName = `${process.env.USERNAME || process.env.USER || 'device'}`
-  saveConfig()
 }
 
 const serverBase = () => config.serverUrl.replace(/\/$/, '')
+
+// Authenticated fetch: attaches the Bearer token and, on a 401, treats the
+// session as gone — stops tracking and drops the user back to the login screen.
+async function authFetch(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) }
+  if (config.token) headers.Authorization = 'Bearer ' + config.token
+  const res = await fetch(serverBase() + path, { ...opts, headers })
+  if (res.status === 401) { await handleAuthFailure(); throw new Error('unauthorized') }
+  return res
+}
+
+async function handleAuthFailure() {
+  if (state.working) await pause()
+  config.token = null; saveConfig()
+  state.authed = false; state.user = null
+  if (win && !win.isDestroyed()) { win.show(); win.focus() }
+  pushStatus()
+}
+
+// ---- Authentication ----
+// On successful login/register: persist the token, adopt the account's identity
+// (the agent's agentId IS the user id) and start tracking.
+async function applyAuth(user, token) {
+  config.token = token
+  config.agentId = user.id
+  config.agentName = user.name || config.agentName
+  config.userType = user.userType || 'Default'
+  saveConfig()
+  state.authed = true
+  state.user = user
+  state.lastError = null
+  await fetchSettings()
+  if (config.autoStart && !state.working) play()
+  pushStatus()
+}
+
+async function doLogin(email, password) {
+  try {
+    const res = await fetch(serverBase() + '/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: data.error || 'login failed' }
+    await applyAuth(data.user, data.token)
+    return { ok: true, user: data.user }
+  } catch { return { ok: false, error: 'cannot reach server at ' + config.serverUrl } }
+}
+
+async function doRegister(name, email, password) {
+  try {
+    const res = await fetch(serverBase() + '/api/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: data.error || 'registration failed' }
+    await applyAuth(data.user, data.token)
+    return { ok: true, user: data.user }
+  } catch { return { ok: false, error: 'cannot reach server at ' + config.serverUrl } }
+}
+
+async function doLogout() {
+  try { await authFetch('/api/auth/logout', { method: 'POST' }) } catch {}
+  if (state.working) await pause()
+  config.token = null; saveConfig()
+  state.authed = false; state.user = null
+  pushStatus()
+  return { ok: true }
+}
+
+// On launch, validate any stored token so we either resume the session or show login.
+async function checkAuth() {
+  if (!config.token) { state.authed = false; return }
+  try {
+    const res = await fetch(serverBase() + '/api/auth/me', { headers: { Authorization: 'Bearer ' + config.token } })
+    if (res.ok) {
+      const { user } = await res.json()
+      state.authed = true; state.user = user
+      config.agentId = user.id
+      config.agentName = user.name || config.agentName
+      config.userType = user.userType || config.userType
+      saveConfig()
+      await fetchSettings()
+    } else {
+      config.token = null; saveConfig(); state.authed = false
+    }
+  } catch { state.authed = false } // server unreachable — show login, keep token
+}
 
 function pushStatus() {
   const payload = { ...state, sessionMs: sessionMs(), config }
@@ -160,11 +253,10 @@ async function captureAndUpload() {
     } catch {}
     const activeApp = await getActiveApp()
 
-    const res = await fetch(serverBase() + '/api/screenshots', {
+    const res = await authFetch('/api/screenshots', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        agentId: config.agentId, agentName: config.agentName,
         capturedAt: Date.now(), image: dataUrl, width, height, activeApp,
         activityPct: state.activityPct,
       }),
@@ -184,10 +276,10 @@ async function sendHeartbeat() {
   if (!state.working || !state.segmentId) return
   fetchSettings() // refresh admin toggles (~every 15s)
   try {
-    await fetch(serverBase() + '/api/time/heartbeat', {
+    await authFetch('/api/time/heartbeat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        segmentId: state.segmentId, agentId: config.agentId, agentName: config.agentName,
+        segmentId: state.segmentId,
         seconds: Math.round((Date.now() - state.lastResumeAt) / 1000),
         trustScore: state.trustScore, trustFlags: state.trustFlags,
       }),
@@ -198,6 +290,7 @@ async function sendHeartbeat() {
 // ---- Play / Pause ----
 async function play(note) {
   if (state.working) return
+  if (!state.authed) { state.lastError = 'please sign in first'; pushStatus(); return }
   if (note != null) state.currentNote = note
   state.working = true
   state.lastResumeAt = Date.now()
@@ -205,9 +298,9 @@ async function play(note) {
 
   // Open a server work segment.
   try {
-    const res = await fetch(serverBase() + '/api/time/start', {
+    const res = await authFetch('/api/time/start', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agentId: config.agentId, agentName: config.agentName, startedAt: state.lastResumeAt, note: state.currentNote || null }),
+      body: JSON.stringify({ startedAt: state.lastResumeAt, note: state.currentNote || null }),
     })
     state.segmentId = (await res.json()).segmentId
   } catch (err) { state.lastError = 'server unreachable: ' + (err.message || err) }
@@ -240,7 +333,7 @@ async function pause() {
   // Finalize the server segment.
   if (state.segmentId) {
     try {
-      await fetch(serverBase() + '/api/time/stop', {
+      await authFetch('/api/time/stop', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ segmentId: state.segmentId, seconds: Math.round(ranMs / 1000), endedAt: Date.now() }),
       })
@@ -281,13 +374,24 @@ function createTray() {
 
 // ---- IPC ----
 ipcMain.handle('get-state', () => ({ ...state, sessionMs: sessionMs(), config }))
+ipcMain.handle('auth-login', (_e, { email, password } = {}) => doLogin(email, password))
+ipcMain.handle('auth-register', (_e, { name, email, password } = {}) => doRegister(name, email, password))
+ipcMain.handle('auth-logout', () => doLogout())
+// The renderer can't hold the token, so it asks the main process for its data.
+ipcMain.handle('time-daily', async () => {
+  if (!config.token) return null
+  try {
+    const res = await authFetch(`/api/time/daily?agentId=${encodeURIComponent(config.agentId)}&days=5`)
+    return res.ok ? await res.json() : null
+  } catch { return null }
+})
 ipcMain.handle('play', (_e, note) => play(note))
 ipcMain.handle('pause', () => pause())
 ipcMain.handle('set-note', async (_e, note) => {
   state.currentNote = note
   if (state.working && state.segmentId) {
     try {
-      await fetch(serverBase() + '/api/time/note', {
+      await authFetch('/api/time/note', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ segmentId: state.segmentId, note }),
       })
@@ -325,14 +429,18 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', () => { if (win) { win.show(); win.focus() } })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow()
   createTray()
   setupAutoUpdate()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 
-  // Run in the background and start sending screen captures automatically.
-  if (config.autoStart) play()
+  // Resume a saved session if the token is still valid, then auto-start tracking.
+  // If not signed in, surface the window so the user can log in.
+  await checkAuth()
+  if (state.authed) { if (config.autoStart) play() }
+  else if (win) { win.show(); win.focus() }
+  pushStatus()
 
   // Test/CI hook: play for a few seconds (capturing), then pause and quit. Off by default.
   if (process.env.DELEGENT_AUTOTEST) {

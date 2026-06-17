@@ -15,6 +15,11 @@ server/data.sqlite-wal
 *.sqlite-shm
 *.sqlite-wal
 
+# Secrets / local env
+.env
+.env.local
+**/.env
+
 # Logs
 *.log
 npm-debug.log*

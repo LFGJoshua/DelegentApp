@@ -96,16 +96,67 @@
     .trust .flags { margin-top:10px; font-size:12px; color:#b23; }
     .trust .flags div { display:flex; gap:6px; align-items:flex-start; margin-top:4px; }
     .trust .ok { font-size:12px; color:var(--muted); margin-top:8px; }
+
+    /* Login screen */
+    .login { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px; z-index:100; }
+    .login .brand { text-align:center; margin-bottom:22px; }
+    .login .brand .org { font-size:13px; color:var(--accent); font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+    .login .brand .ttl { font-size:30px; font-weight:800; color:var(--header); margin-top:4px; }
+    .login .panel { width:100%; max-width:330px; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:0 8px 28px rgba(14,61,45,.10); }
+    .login .ltabs { display:flex; margin:-4px -4px 14px; }
+    .login .ltabs button { flex:1; padding:11px 0; background:transparent; border:none; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+    .login .ltabs button.on { color:var(--accent); border-bottom-color:var(--accent); }
+    .login label { display:block; font-size:12px; font-weight:600; margin:12px 0 4px; }
+    .login input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; outline:none; background:#fff; }
+    .login input:focus { border-color:var(--accent); }
+    .login .lbtn { width:100%; margin-top:16px; background:var(--accent); color:#fff; border:none; padding:12px; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; }
+    .login .lbtn:hover { background:var(--accent2); }
+    .login .lbtn:disabled { opacity:.6; cursor:default; }
+    .login .lmsg { font-size:12px; margin-top:12px; min-height:15px; color:var(--orange); }
+    .login .lhint { font-size:11px; color:var(--muted); margin-top:10px; line-height:1.5; }
+    .login .lserver { font-size:11px; color:var(--muted); margin-top:18px; text-align:center; }
+    .login .lserver input { display:inline-block; width:auto; padding:4px 8px; font-size:11px; }
+    #lNameWrap { display:none; }
   </style>
 </head>
 <body>
-  <div class="scroll">
+  <div class="login" id="loginView">
+    <div class="brand">
+      <div class="org">Delegent</div>
+      <div class="ttl">Sign in to track</div>
+    </div>
+    <div class="panel">
+      <div class="ltabs">
+        <button id="lTabLogin" class="on">Sign in</button>
+        <button id="lTabRegister">Create account</button>
+      </div>
+      <form id="lForm">
+        <div id="lNameWrap">
+          <label for="lName">Name</label>
+          <input id="lName" type="text" placeholder="Your name" />
+        </div>
+        <label for="lEmail">Email</label>
+        <input id="lEmail" type="email" placeholder="you@company.com" required />
+        <label for="lPassword">Password</label>
+        <input id="lPassword" type="password" placeholder="••••••••" required />
+        <button class="lbtn" id="lSubmit" type="submit">Sign in</button>
+        <div class="lmsg" id="lMsg"></div>
+        <div class="lhint" id="lHint"></div>
+      </form>
+      <div class="lserver">Server: <input id="lServer" type="text" /></div>
+    </div>
+  </div>
+
+  <div class="scroll" id="appScroll">
     <div class="head">
       <div>
-        <div class="org">Delegent</div>
+        <div class="org">Delegent <span id="roleTag" style="color:#9ad9b4;font-size:11px;"></span></div>
         <div class="name" id="name">device</div>
       </div>
-      <div class="menu" title="Open dashboard" id="menuBtn">☰</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span id="logoutLink" title="Sign out" style="font-size:12px;color:#9ad9b4;cursor:pointer;">log out</span>
+        <div class="menu" title="Open dashboard" id="menuBtn">☰</div>
+      </div>
     </div>
 
     <div class="top">
@@ -214,8 +265,8 @@
     async function poll() {
       if (!cfg) return
       try {
-        const base = cfg.serverUrl.replace(/\/$/, '')
-        const data = await fetch(`${base}/api/time/daily?agentId=${encodeURIComponent(cfg.agentId)}&days=5`).then(r => r.json())
+        const data = await window.agent.timeDaily()
+        if (!data) return
         todayBase = data.today; fetchAt = Date.now()
         renderChart(data.days)
         renderList(data.entries)
@@ -228,6 +279,18 @@
     function onStatus(s) {
       if (!s) return
       cfg = s.config
+
+      // Auth gate: show the login screen until a user is signed in.
+      if (!s.authed) {
+        $('loginView').style.display = 'flex'
+        $('appScroll').style.display = 'none'
+        if (cfg && document.activeElement.id !== 'lServer') $('lServer').value = cfg.serverUrl || ''
+        return
+      }
+      $('loginView').style.display = 'none'
+      $('appScroll').style.display = 'block'
+      $('roleTag').textContent = s.user ? '· ' + (s.user.role === 'admin' ? 'Admin' : 'Employee') : ''
+
       working = s.working
       $('name').textContent = cfg.agentName || 'device'
       if (document.activeElement.id !== 'note') $('note').value = s.currentNote || ''
@@ -269,6 +332,47 @@
     // Update the note live while running.
     $('note').addEventListener('change', () => { if (working) window.agent.setNote($('note').value.trim()) })
     $('menuBtn').onclick = () => { /* opens dashboard in browser */ if (cfg) window.open(cfg.serverUrl, '_blank') }
+
+    // ---- Login screen ----
+    let authMode = 'login'
+    function setAuthMode(m) {
+      authMode = m
+      $('lTabLogin').classList.toggle('on', m === 'login')
+      $('lTabRegister').classList.toggle('on', m === 'register')
+      $('lSubmit').textContent = m === 'login' ? 'Sign in' : 'Create account'
+      $('lNameWrap').style.display = m === 'register' ? 'block' : 'none'
+      $('lHint').textContent = m === 'register'
+        ? 'The first account created becomes the admin/manager. Everyone after is an employee.'
+        : ''
+      $('lMsg').textContent = ''
+    }
+    $('lTabLogin').onclick = () => setAuthMode('login')
+    $('lTabRegister').onclick = () => setAuthMode('register')
+
+    $('lForm').onsubmit = async (e) => {
+      e.preventDefault()
+      $('lSubmit').disabled = true
+      $('lMsg').style.color = 'var(--muted)'; $('lMsg').textContent = 'Please wait…'
+      // Save the server URL first so login hits the right backend.
+      const server = $('lServer').value.trim()
+      if (server && (!cfg || server !== cfg.serverUrl)) cfg = await window.agent.setConfig({ serverUrl: server })
+      const email = $('lEmail').value.trim(), password = $('lPassword').value, name = $('lName').value.trim()
+      const r = authMode === 'login'
+        ? await window.agent.login(email, password)
+        : await window.agent.register(name, email, password)
+      if (r && r.ok) {
+        $('lMsg').style.color = 'var(--accent)'; $('lMsg').textContent = 'Signed in!'
+        const s = await window.agent.getState(); onStatus(s); poll()
+      } else {
+        $('lMsg').style.color = 'var(--orange)'; $('lMsg').textContent = (r && r.error) || 'Sign-in failed'
+      }
+      $('lSubmit').disabled = false
+    }
+
+    $('logoutLink').onclick = async () => {
+      await window.agent.logout()
+      const s = await window.agent.getState(); onStatus(s)
+    }
 
     window.agent.onStatus(onStatus)
     window.agent.getState().then((s) => { onStatus(s); poll() })

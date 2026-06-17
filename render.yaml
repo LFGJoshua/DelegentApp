@@ -1,0 +1,24 @@
+# Render Blueprint — deploys the Delegent server.
+# In Render: New + → Blueprint → connect the DelegentApp repo. Render reads this
+# file, creates the service, and prompts for the secret env vars (sync: false).
+services:
+  - type: web
+    name: delegent-server
+    runtime: node
+    rootDir: server          # the server lives in server/
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: COOKIE_SECURE
+        value: "1"            # Render serves over HTTPS
+      - key: SUPABASE_BUCKET
+        value: screenshots
+      # Secrets — set these in the Render dashboard (not committed):
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
