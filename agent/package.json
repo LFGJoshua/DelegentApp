@@ -1,6 +1,6 @@
 {
   "name": "delegent-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Delegent monitoring agent — captures the screen on an interval and uploads to the backend.",
   "private": true,
   "main": "electron/main.cjs",
