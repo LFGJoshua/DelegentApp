@@ -4,13 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Download Delegent</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <style>
     :root { --green-900:#0e3d2d; --green:#15803d; --green2:#16a34a; --ink:#0f2a20; --muted:#5f6f67; --line:#e4ebe7; --bg:#f5f8f6; }
     * { box-sizing:border-box; }
     body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; color:var(--ink); background:var(--bg); }
     .hero { background:linear-gradient(160deg,#0e3d2d,#125737); color:#fff; padding:70px 24px 90px; text-align:center; }
-    .badge { display:inline-block; background:#fff; color:var(--green-900); font-weight:800; letter-spacing:1px; padding:8px 16px; border-radius:8px; font-size:14px; }
-    .badge small { display:block; font-size:10px; letter-spacing:2px; color:var(--green); }
+    /* Delegent lettermark */
+    .brandmark { display:inline-flex; align-items:center; gap:12px; }
+    .brandmark .tile { width:48px; height:48px; border-radius:12px; background:#fff; color:var(--green-900); font-weight:800; font-size:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 18px rgba(0,0,0,.22); }
+    .brandmark .word { text-align:left; font-size:24px; font-weight:800; color:#fff; letter-spacing:.3px; line-height:1.1; }
+    .brandmark .word small { display:block; font-size:10px; letter-spacing:2px; color:#bfe3cd; font-weight:700; margin-top:2px; }
     h1 { font-size:44px; margin:26px 0 10px; }
     .sub { font-size:18px; color:#bfe3cd; max-width:620px; margin:0 auto 34px; line-height:1.5; }
     .dl-btn { display:inline-flex; align-items:center; gap:12px; background:#fff; color:var(--green-900); font-size:18px; font-weight:700;
@@ -40,7 +44,10 @@
 </head>
 <body>
   <div class="hero">
-    <div class="badge">LETS GET FUNDED<small>TALENT PORTAL</small></div>
+    <div class="brandmark">
+      <span class="tile">D</span>
+      <span class="word">Delegent<small>TIME &amp; ACTIVITY</small></span>
+    </div>
     <h1>Delegent Desktop</h1>
     <div class="sub">Track your work time, capture activity, and stay in sync with the dashboard — a lightweight desktop timer that runs quietly in the background.</div>
     <a class="dl-btn" href="#" id="dlBtn">⬇&nbsp; Download</a>

@@ -6,7 +6,7 @@
   <title>Delegent</title>
   <style>
     :root {
-      /* Lets Get Funded brand palette: deep forest green + white + green accents */
+      /* Delegent brand palette: deep forest green + white + green accents */
       --bg:#f5f8f6; --panel:#ffffff; --panel2:#eef3f0; --border:#e4ebe7;
       --text:#0f2a20; --muted:#5f6f67; --accent:#15803d; --accent2:#16a34a;
       --teal:#2bb673; --orange:#ff5b3a; --row:#eef3f0; --header:#0e3d2d;
@@ -18,6 +18,8 @@
 
     /* Header — deep green brand band */
     .head { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; background:var(--header); color:#fff; }
+    .head .brandrow { display:flex; align-items:center; gap:10px; }
+    .head .dtile { width:30px; height:30px; border-radius:8px; background:var(--accent); color:#fff; font-weight:800; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .org { font-size:12px; color:#9ad9b4; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
     .name { font-size:22px; font-weight:800; text-transform:lowercase; margin-top:2px; color:#fff; }
     .menu { font-size:24px; color:#cfe3d7; cursor:pointer; line-height:1; }
@@ -100,6 +102,7 @@
     /* Login screen */
     .login { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px; z-index:100; }
     .login .brand { text-align:center; margin-bottom:22px; }
+    .login .brand .tile { width:54px; height:54px; border-radius:14px; background:var(--accent); color:#fff; font-weight:800; font-size:34px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:10px; box-shadow:0 8px 22px rgba(21,128,61,.35); }
     .login .brand .org { font-size:13px; color:var(--accent); font-weight:700; letter-spacing:1px; text-transform:uppercase; }
     .login .brand .ttl { font-size:30px; font-weight:800; color:var(--header); margin-top:4px; }
     .login .panel { width:100%; max-width:330px; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:0 8px 28px rgba(14,61,45,.10); }
@@ -122,6 +125,7 @@
 <body>
   <div class="login" id="loginView">
     <div class="brand">
+      <div class="tile">D</div>
       <div class="org">Delegent</div>
       <div class="ttl">Sign in to track</div>
     </div>
@@ -149,9 +153,12 @@
 
   <div class="scroll" id="appScroll">
     <div class="head">
-      <div>
-        <div class="org">Delegent <span id="roleTag" style="color:#9ad9b4;font-size:11px;"></span></div>
-        <div class="name" id="name">device</div>
+      <div class="brandrow">
+        <span class="dtile">D</span>
+        <div>
+          <div class="org">Delegent <span id="roleTag" style="color:#9ad9b4;font-size:11px;"></span></div>
+          <div class="name" id="name">device</div>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:14px;">
         <span id="logoutLink" title="Sign out" style="font-size:12px;color:#9ad9b4;cursor:pointer;">log out</span>

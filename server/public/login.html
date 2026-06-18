@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Delegent — Sign in</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <style>
     :root { --nav:#0e3d2d; --green:#22a05a; --green-d:#15803d; --ink:#0f2a20; --muted:#5f6f67; --line:#e4ebe7; --bg:#f5f8f6; --red:#e8513b; }
     * { box-sizing:border-box; }
@@ -12,8 +13,10 @@
     .card { background:#fff; border:1px solid var(--line); border-radius:14px; width:380px; max-width:92vw;
       box-shadow:0 12px 40px rgba(14,61,45,.12); overflow:hidden; }
     .head { background:var(--nav); color:#fff; padding:22px 26px; }
-    .head .org { font-size:12px; color:#9ad9b4; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
-    .head .ttl { font-size:24px; font-weight:800; margin-top:2px; }
+    .head .brandrow { display:flex; align-items:center; gap:10px; }
+    .head .tile { width:34px; height:34px; border-radius:9px; background:var(--green); color:#fff; font-weight:800; font-size:21px; display:flex; align-items:center; justify-content:center; }
+    .head .org { font-size:17px; color:#fff; font-weight:800; letter-spacing:.3px; }
+    .head .ttl { font-size:24px; font-weight:800; margin-top:10px; }
     .tabs { display:flex; border-bottom:1px solid var(--line); }
     .tabs button { flex:1; padding:14px 0; background:#fff; border:none; font-size:15px; font-weight:600; color:var(--muted); cursor:pointer; }
     .tabs button.on { color:var(--green-d); box-shadow:inset 0 -2px 0 var(--green); }
@@ -33,7 +36,7 @@
 <body>
   <div class="card">
     <div class="head">
-      <div class="org">Delegent</div>
+      <div class="brandrow"><span class="tile">D</span><span class="org">Delegent</span></div>
       <div class="ttl" id="title">Sign in</div>
     </div>
     <div class="tabs">
