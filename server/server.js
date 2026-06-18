@@ -128,6 +128,18 @@ const isAdmin = (req) => req.user.role === 'admin'
 const requireAdmin = (req, res, next) =>
   req.user ? (req.user.role === 'admin' ? next() : res.status(403).json({ error: 'admin only' })) : res.status(401).json({ error: 'auth required' })
 
+// --- Timezone-aware day bucketing ---
+// Clients pass ?tz=<minutes east of UTC> (e.g. UTC+8 → 480). Day boundaries are
+// then computed in the viewer's local time, not the server's, so screenshots and
+// tracked time land on the day the user actually sees. Defaults to 0 (UTC).
+const tzMin = (req) => { const v = Number(req.query.tz); return Number.isFinite(v) ? v : 0 }
+// UTC ms of local-midnight for the local calendar day containing `ms`.
+const startOfLocalDay = (ms, tz) => { const d = new Date(ms + tz * 60000); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - tz * 60000 }
+// UTC ms of local-midnight for an explicit local Y/M(0-based)/D.
+const localDayMs = (y, m0, d, tz) => Date.UTC(y, m0, d) - tz * 60000
+// Day-of-week (0=Sun) of a local day given its local-midnight UTC ms.
+const localDow = (dayStartUtc, tz) => new Date(dayStartUtc + tz * 60000).getUTCDay()
+
 function setSessionCookie(res, token) {
   const maxAge = Math.floor(SESSION_TTL_MS / 1000)
   const secure = process.env.COOKIE_SECURE === '1' ? '; Secure' : ''
@@ -370,8 +382,7 @@ app.post('/api/time/stop', requireAuth, async (req, res) => {
 // Worked-time summary per agent: total today, all-time, and whether running now.
 app.get('/api/time/summary', requireAuth, async (req, res) => {
   const now = Date.now()
-  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
-  const todayMs = startOfToday.getTime()
+  const todayMs = startOfLocalDay(now, tzMin(req))
 
   const STALE_MS = 90_000 // an open segment with no heartbeat for this long = crashed agent
   const segs = await db.prepare(`SELECT agent_id, started_at, ended_at, seconds, open FROM work_segments`).all()
@@ -409,10 +420,11 @@ app.get('/api/time/summary', requireAuth, async (req, res) => {
 app.get('/api/report/apps', requireAuth, async (req, res) => {
   const agentId = isAdmin(req) ? req.query.agentId : req.user.id
   if (!agentId) return res.status(400).json({ error: 'agentId required' })
+  const tz = tzMin(req)
   const [fy, fm, fd] = String(req.query.from || '').split('-').map(Number)
   const [ty, tm, td] = String(req.query.to || '').split('-').map(Number)
-  const fromStart = new Date(fy, fm - 1, fd).getTime()
-  const toEnd = new Date(ty, tm - 1, td).getTime() + 86400000 // inclusive end day
+  const fromStart = localDayMs(fy, fm - 1, fd, tz)
+  const toEnd = localDayMs(ty, tm - 1, td, tz) + 86400000 // inclusive end day
   const now = Date.now()
 
   // Total worked time from segments overlapping the range.
@@ -457,13 +469,15 @@ app.get('/api/report/apps', requireAuth, async (req, res) => {
 // totals and the latest screenshot thumbnail.
 app.get('/api/overview', requireAuth, async (req, res) => {
   const now = Date.now()
-  const d0 = new Date(); d0.setHours(0, 0, 0, 0)
-  const todayStart = d0.getTime(), todayEnd = todayStart + 86400000
+  const tz = tzMin(req)
+  const ld = new Date(now + tz * 60000) // local "now"
+  const Y = ld.getUTCFullYear(), M = ld.getUTCMonth(), Dd = ld.getUTCDate()
+  const todayStart = localDayMs(Y, M, Dd, tz), todayEnd = todayStart + 86400000
   const yStart = todayStart - 86400000
-  const dow = (d0.getDay() + 6) % 7
+  const dow = (localDow(todayStart, tz) + 6) % 7 // Monday = 0
   const weekStart = todayStart - dow * 86400000, weekEnd = weekStart + 7 * 86400000
-  const monStart = new Date(d0.getFullYear(), d0.getMonth(), 1).getTime()
-  const monEnd = new Date(d0.getFullYear(), d0.getMonth() + 1, 1).getTime()
+  const monStart = localDayMs(Y, M, 1, tz)
+  const monEnd = localDayMs(Y, M + 1, 1, tz)
 
   const agents = isAdmin(req)
     ? await db.prepare(`SELECT id, name, last_seen FROM agents`).all()
@@ -512,8 +526,9 @@ app.get('/api/time/daily', requireAuth, async (req, res) => {
   if (!agentId) return res.status(400).json({ error: 'agentId required' })
   const days = Math.min(Number(req.query.days) || 5, 31)
   const now = Date.now()
+  const tz = tzMin(req)
   const STALE_MS = 90_000
-  const dayKey = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime() }
+  const dayKey = (ts) => startOfLocalDay(ts, tz)
   const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const segs = await db.prepare(`SELECT started_at, ended_at, seconds, open, note FROM work_segments WHERE agent_id = ?`).all(agentId)
@@ -539,7 +554,7 @@ app.get('/api/time/daily', requireAuth, async (req, res) => {
   const chart = []
   for (let i = days - 1; i >= 0; i--) {
     const k = todayKey - i * 86400000
-    chart.push({ date: k, label: labels[new Date(k).getDay()], seconds: byDay.get(k)?.seconds || 0 })
+    chart.push({ date: k, label: labels[localDow(k, tz)], seconds: byDay.get(k)?.seconds || 0 })
   }
   const entries = [...byDay.entries()].sort((a, b) => b[0] - a[0]).map(([k, e]) => ({
     date: k,
@@ -567,15 +582,16 @@ const overlap = (a, b, c, d) => Math.max(0, Math.min(b, d) - Math.max(a, c))
 app.get('/api/calendar', requireAuth, async (req, res) => {
   const agentId = isAdmin(req) ? req.query.agentId : req.user.id
   if (!agentId) return res.status(400).json({ error: 'agentId required' })
+  const tz = tzMin(req)
   const y = Number(req.query.year), m = Number(req.query.month) - 1 // month is 1-12
   const now = Date.now()
   const segs = await db.prepare(`SELECT started_at, ended_at, seconds, open FROM work_segments WHERE agent_id = ?`).all(agentId)
   const intervals = segs.map((s) => segInterval(s, now))
-  const ndays = new Date(y, m + 1, 0).getDate()
+  const ndays = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
   const days = []
   let monthTotal = 0
   for (let d = 1; d <= ndays; d++) {
-    const a = new Date(y, m, d).getTime(), b = a + 86400000
+    const a = localDayMs(y, m, d, tz), b = a + 86400000
     let secs = 0
     for (const [st, en] of intervals) secs += overlap(st, en, a, b)
     secs = Math.round(secs / 1000)
@@ -589,12 +605,12 @@ app.get('/api/calendar', requireAuth, async (req, res) => {
 app.get('/api/day', requireAuth, async (req, res) => {
   const agentId = isAdmin(req) ? req.query.agentId : req.user.id
   if (!agentId) return res.status(400).json({ error: 'agentId required' })
+  const tz = tzMin(req)
   const [yy, mm, dd] = String(req.query.date || '').split('-').map(Number)
-  const day = new Date(yy, mm - 1, dd)
-  const dayStart = day.getTime(), dayEnd = dayStart + 86400000
-  const dow = (day.getDay() + 6) % 7 // 0 = Monday
+  const dayStart = localDayMs(yy, mm - 1, dd, tz), dayEnd = dayStart + 86400000
+  const dow = (localDow(dayStart, tz) + 6) % 7 // 0 = Monday
   const weekStart = dayStart - dow * 86400000, weekEnd = weekStart + 7 * 86400000
-  const monStart = new Date(yy, mm - 1, 1).getTime(), monEnd = new Date(yy, mm, 1).getTime()
+  const monStart = localDayMs(yy, mm - 1, 1, tz), monEnd = localDayMs(yy, mm, 1, tz)
   const now = Date.now()
 
   const segs = await db.prepare(`SELECT started_at, ended_at, seconds, open, note FROM work_segments WHERE agent_id = ?`).all(agentId)

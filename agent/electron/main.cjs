@@ -395,7 +395,8 @@ ipcMain.handle('auth-logout', () => doLogout())
 ipcMain.handle('time-daily', async () => {
   if (!config.token) return null
   try {
-    const res = await authFetch(`/api/time/daily?agentId=${encodeURIComponent(config.agentId)}&days=5`)
+    const tz = -new Date().getTimezoneOffset() // minutes east of UTC
+    const res = await authFetch(`/api/time/daily?agentId=${encodeURIComponent(config.agentId)}&days=5&tz=${tz}`)
     return res.ok ? await res.json() : null
   } catch { return null }
 })

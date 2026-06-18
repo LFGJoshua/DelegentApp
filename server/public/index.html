@@ -319,6 +319,8 @@
 
     let currentUser = null
     const ALL_TYPES = ['Default', 'Developer', 'Virtual Assistant', 'Data Entry', 'Designer']
+    // Minutes east of UTC (UTC+8 → 480) so the server buckets days in our local time.
+    const TZMIN = -new Date().getTimezoneOffset()
     let agentId = null
     let view = new Date()        // month being viewed
     let sel = new Date()         // selected day
@@ -356,7 +358,7 @@
 
     // Home employee overview table.
     async function loadOverview() {
-      const rows = await fetch('/api/overview').then(r=>r.json())
+      const rows = await fetch('/api/overview?tz='+TZMIN).then(r=>r.json())
       $('empBody').innerHTML = rows.length ? rows.map(r=>`
         <tr class="emp" data-id="${r.agentId}">
           <td><span class="emp-name"><span class="chk">●</span>${esc(r.name)}</span></td>
@@ -499,7 +501,7 @@
     async function loadReport() {
       const id = $('repEmployee').value || agentId
       if (!id || !repFrom) return
-      const data = await fetch(`/api/report/apps?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}`).then(r=>r.json())
+      const data = await fetch(`/api/report/apps?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}&tz=${TZMIN}`).then(r=>r.json())
       $('repTotal').textContent = hm(data.totalWorked)
       $('repAct').textContent = data.activity + '%'
       let acc = 0; const segs = []
@@ -514,7 +516,7 @@
     async function loadCalendar() {
       $('monthLbl').textContent = `${MON[view.getMonth()]} ${view.getFullYear()}`
       if (!agentId) return
-      const data = await fetch(`/api/calendar?agentId=${agentId}&year=${view.getFullYear()}&month=${view.getMonth()+1}`).then(r=>r.json())
+      const data = await fetch(`/api/calendar?agentId=${agentId}&year=${view.getFullYear()}&month=${view.getMonth()+1}&tz=${TZMIN}`).then(r=>r.json())
       const max = Math.max(...data.days.map(d=>d.seconds), 8*3600) // scale to >=8h
       $('cal').innerHTML = data.days.map(d=>{
         const dt = new Date(d.date); const dow = (dt.getDay()+6)%7
@@ -542,7 +544,7 @@
 
     async function loadDay() {
       if (!agentId) return
-      const d = await fetch(`/api/day?agentId=${agentId}&date=${ymd(sel)}`).then(r=>r.json())
+      const d = await fetch(`/api/day?agentId=${agentId}&date=${ymd(sel)}&tz=${TZMIN}`).then(r=>r.json())
       $('dayDate').innerHTML = new Date(sel).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}) + ' <span style="color:#e8a33b">◑</span>'
       $('dayBig').textContent = hm(d.dayTotal)
       $('weekTot').textContent = hm(d.weekTotal)
