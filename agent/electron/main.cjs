@@ -143,7 +143,7 @@ function saveConfig() { writeFileSync(configPath(), JSON.stringify(config, null,
 let config = {
   agentId: null,
   agentName: '',
-  serverUrl: 'http://localhost:4000',
+  serverUrl: 'https://delegent-server.onrender.com',
   intervalSec: 60,
   autoStart: true,  // start capturing automatically on launch
   userType: 'Default', // which signal profile applies (Developer, Virtual Assistant, …)
