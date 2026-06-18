@@ -53,6 +53,7 @@
     <a class="dl-btn" href="#" id="dlBtn">⬇&nbsp; Download</a>
     <div class="dl-meta" id="dlMeta">Windows · macOS</div>
     <div class="alt-dls" id="altDls"></div>
+    <div class="alt-dls" id="zipFallback" style="margin-top:8px"></div>
     <div class="gatekeeper" id="gatekeeper" style="display:none">macOS is an unsigned build. First launch: <strong>right-click the app → Open → Open</strong> (or System Settings → Privacy &amp; Security → <strong>Open Anyway</strong>).<br>If it says <em>"damaged and can't be opened,"</em> open Terminal and run: <code style="background:rgba(255,255,255,.12);padding:2px 6px;border-radius:5px">xattr -dr com.apple.quarantine /Applications/Delegent.app</code></div>
     <div class="gatekeeper" id="smartscreen" style="display:none">If Windows SmartScreen appears (unsigned app), click <strong>More info → Run anyway</strong>.</div>
     <div class="auto">🔄 Windows installs once, then <strong>updates itself automatically</strong></div>
@@ -79,9 +80,9 @@
     // version-less so these "latest" links stay stable across releases.
     const GH = 'https://github.com/LFGJoshua/DelegentApp/releases/latest/download/'
     const D = {
-      win:    { label: 'Download for Windows',              short: 'Windows',                meta: 'Windows 10 / 11 · 64-bit', file: 'Delegent-Setup.exe' },
-      macArm: { label: 'Download for macOS (Apple Silicon)', short: 'macOS (Apple Silicon)',   meta: 'macOS · M1 / M2 / M3 / M4', file: 'Delegent-mac-arm64.dmg' },
-      macX64: { label: 'Download for macOS (Intel)',         short: 'macOS (Intel)',          meta: 'macOS · Intel',            file: 'Delegent-mac-x64.dmg' },
+      win:    { label: 'Download for Windows',              short: 'Windows',                meta: 'Windows 10 / 11 · 64-bit', file: 'Delegent-Setup.exe',     zip: 'Delegent-Setup.zip' },
+      macArm: { label: 'Download for macOS (Apple Silicon)', short: 'macOS (Apple Silicon)',   meta: 'macOS · M1 / M2 / M3 / M4', file: 'Delegent-mac-arm64.dmg', zip: 'Delegent-mac-arm64.zip' },
+      macX64: { label: 'Download for macOS (Intel)',         short: 'macOS (Intel)',          meta: 'macOS · Intel',            file: 'Delegent-mac-x64.dmg',  zip: 'Delegent-mac-x64.zip' },
     }
     const $ = (id) => document.getElementById(id)
     const ua = navigator.userAgent
@@ -92,6 +93,8 @@
     $('dlBtn').innerHTML = '⬇&nbsp; ' + primary.label
     $('dlMeta').textContent = primary.meta
     $(isMac ? 'gatekeeper' : 'smartscreen').style.display = 'block'
+    // .zip fallback for when the browser blocks the raw installer download.
+    $('zipFallback').innerHTML = `<a href="${GH + primary.zip}">Download blocked by your browser? Get the .zip instead</a>`
 
     // Show the other platforms as secondary links (browsers can't reliably tell
     // Apple Silicon from Intel, so we list both).

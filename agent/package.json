@@ -35,7 +35,7 @@
       "electron/keyhook.ps1"
     ],
     "win": {
-      "target": "nsis",
+      "target": ["nsis", "zip"],
       "artifactName": "Delegent-Setup.${ext}",
       "signAndEditExecutable": false
     },
