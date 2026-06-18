@@ -6,7 +6,9 @@
   "main": "electron/main.cjs",
   "scripts": {
     "start": "node scripts/launch.cjs",
-    "dist": "electron-builder --win --publish never"
+    "dist": "electron-builder --win --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.3.9",
@@ -34,7 +36,7 @@
     ],
     "win": {
       "target": "nsis",
-      "artifactName": "Delegent-Setup-${version}.${ext}",
+      "artifactName": "Delegent-Setup.${ext}",
       "signAndEditExecutable": false
     },
     "nsis": {
@@ -43,11 +45,17 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true
     },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "artifactName": "Delegent-mac-${arch}.${ext}",
+      "category": "public.app-category.productivity",
+      "identity": null
+    },
     "publish": [
-      {
-        "provider": "generic",
-        "url": "http://localhost:4000/updates"
-      }
+      { "provider": "github", "owner": "LFGJoshua", "repo": "DelegentApp" }
     ]
   }
 }

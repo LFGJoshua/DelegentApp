@@ -1,0 +1,58 @@
+name: Build desktop app
+
+# Builds the Windows installer and both macOS disk images (Intel + Apple Silicon)
+# and attaches them to a GitHub Release. Trigger by pushing a version tag:
+#   git tag v0.1.0 && git push origin v0.1.0
+# or run manually from the Actions tab (workflow_dispatch).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create/update the Release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build: npm run dist:win
+          - os: macos-latest
+            build: npm run dist:mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: agent
+        run: npm ci
+
+      - name: Build installer(s)
+        working-directory: agent
+        run: ${{ matrix.build }}
+        env:
+          # Build unsigned (no Apple Developer cert). Remove and add signing
+          # secrets later if you get a Developer ID certificate.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # On a tag push this attaches to that tag's release; for manual runs it
+          # falls back to a rolling "desktop-latest" prerelease.
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'desktop-latest' }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || 'Latest desktop build' }}
+          prerelease: ${{ github.ref_type != 'tag' }}
+          files: |
+            agent/release/*.exe
+            agent/release/*.dmg
+            agent/release/*.zip
+            agent/release/*.yml
+            agent/release/*.blockmap

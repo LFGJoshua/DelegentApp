@@ -21,19 +21,33 @@ function setupAutoUpdate() {
   } catch {}
 }
 
-// Get the foreground window's app name (Windows). Used to label screenshots.
+// Get the foreground window's app name. Used to label screenshots.
+// Windows: Win32 GetForegroundWindow via PowerShell. macOS: AppleScript asks
+// System Events for the frontmost app (needs Accessibility permission).
 function getActiveApp() {
-  if (process.platform !== 'win32') return Promise.resolve(null)
-  const ps = `Add-Type -Name U -Namespace Win -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out int p);'
+  if (process.platform === 'win32') {
+    const ps = `Add-Type -Name U -Namespace Win -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out int p);'
 $h=[Win.U]::GetForegroundWindow(); $procId=0; [Win.U]::GetWindowThreadProcessId($h,[ref]$procId) | Out-Null
 try { (Get-Process -Id $procId -ErrorAction Stop).ProcessName } catch { '' }`
-  return new Promise((resolve) => {
-    execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { timeout: 4000 }, (err, stdout) => {
-      if (err || !stdout) return resolve(null)
-      const name = stdout.trim()
-      resolve(name ? name.charAt(0).toUpperCase() + name.slice(1) : null)
+    return new Promise((resolve) => {
+      execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { timeout: 4000 }, (err, stdout) => {
+        if (err || !stdout) return resolve(null)
+        const name = stdout.trim()
+        resolve(name ? name.charAt(0).toUpperCase() + name.slice(1) : null)
+      })
     })
-  })
+  }
+  if (process.platform === 'darwin') {
+    const script = 'tell application "System Events" to get name of first application process whose frontmost is true'
+    return new Promise((resolve) => {
+      execFile('osascript', ['-e', script], { timeout: 4000 }, (err, stdout) => {
+        if (err || !stdout) return resolve(null)
+        const name = stdout.trim()
+        resolve(name || null)
+      })
+    })
+  }
+  return Promise.resolve(null)
 }
 
 let win = null

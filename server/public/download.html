@@ -17,6 +17,10 @@
       padding:16px 34px; border-radius:12px; text-decoration:none; box-shadow:0 12px 30px rgba(0,0,0,.25); transition:.15s; }
     .dl-btn:hover { transform:translateY(-2px); }
     .dl-meta { color:#9fcbb1; font-size:13px; margin-top:14px; }
+    .alt-dls { margin-top:18px; display:flex; gap:18px; justify-content:center; flex-wrap:wrap; }
+    .alt-dls a { color:#cfe8da; font-size:13px; text-decoration:underline; cursor:pointer; }
+    .alt-dls a:hover { color:#fff; }
+    .gatekeeper { color:#9fcbb1; font-size:12px; margin-top:12px; max-width:560px; margin-left:auto; margin-right:auto; }
     .auto { display:inline-flex; align-items:center; gap:8px; margin-top:30px; background:rgba(255,255,255,.12); padding:9px 18px; border-radius:999px; font-size:14px; color:#dff3e8; }
 
     .features { max-width:980px; margin:-50px auto 0; padding:0 24px 70px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
@@ -37,11 +41,13 @@
 <body>
   <div class="hero">
     <div class="badge">LETS GET FUNDED<small>TALENT PORTAL</small></div>
-    <h1>Delegent for Windows</h1>
+    <h1>Delegent Desktop</h1>
     <div class="sub">Track your work time, capture activity, and stay in sync with the dashboard — a lightweight desktop timer that runs quietly in the background.</div>
-    <a class="dl-btn" href="/download/app" id="dlBtn">⬇&nbsp; Download for Windows</a>
-    <div class="dl-meta" id="dlMeta">Windows 10 / 11 · 64-bit</div>
-    <div class="auto">🔄 Installs once, then <strong>updates itself automatically</strong></div>
+    <a class="dl-btn" href="#" id="dlBtn">⬇&nbsp; Download</a>
+    <div class="dl-meta" id="dlMeta">Windows · macOS</div>
+    <div class="alt-dls" id="altDls"></div>
+    <div class="gatekeeper" id="gatekeeper" style="display:none">macOS is an unsigned build: on first launch, right-click the app → <strong>Open</strong> (or System Settings → Privacy &amp; Security → Open Anyway).</div>
+    <div class="auto">🔄 Windows installs once, then <strong>updates itself automatically</strong></div>
   </div>
 
   <div class="features">
@@ -61,16 +67,29 @@
   <div class="foot">© Delegent · <a href="/">Open dashboard</a> · <a href="/updates/latest.yml">Update feed</a></div>
 
   <script>
-    // Show the installer size/version if available.
-    fetch('/updates/latest.yml').then(r=>r.ok?r.text():'').then(t=>{
-      const v = (t.match(/version:\s*([\d.]+)/)||[])[1]
-      const size = (t.match(/size:\s*(\d+)/)||[])[1]
-      const meta = document.getElementById('dlMeta')
-      let s = 'Windows 10 / 11 · 64-bit'
-      if (v) s += ' · v' + v
-      if (size) s += ' · ' + (size/1048576).toFixed(0) + ' MB'
-      meta.textContent = s
-    }).catch(()=>{})
+    // Installers are published as GitHub Release assets (built by CI). Names are
+    // version-less so these "latest" links stay stable across releases.
+    const GH = 'https://github.com/LFGJoshua/DelegentApp/releases/latest/download/'
+    const D = {
+      win:    { label: 'Download for Windows',              short: 'Windows',                meta: 'Windows 10 / 11 · 64-bit', file: 'Delegent-Setup.exe' },
+      macArm: { label: 'Download for macOS (Apple Silicon)', short: 'macOS (Apple Silicon)',   meta: 'macOS · M1 / M2 / M3 / M4', file: 'Delegent-mac-arm64.dmg' },
+      macX64: { label: 'Download for macOS (Intel)',         short: 'macOS (Intel)',          meta: 'macOS · Intel',            file: 'Delegent-mac-x64.dmg' },
+    }
+    const $ = (id) => document.getElementById(id)
+    const ua = navigator.userAgent
+    const isMac = /Mac/i.test(ua) && !/iPhone|iPad|iPod/i.test(ua)
+    const primary = isMac ? D.macArm : D.win
+
+    $('dlBtn').href = GH + primary.file
+    $('dlBtn').innerHTML = '⬇&nbsp; ' + primary.label
+    $('dlMeta').textContent = primary.meta
+    if (isMac) $('gatekeeper').style.display = 'block'
+
+    // Show the other platforms as secondary links (browsers can't reliably tell
+    // Apple Silicon from Intel, so we list both).
+    $('altDls').innerHTML = ['win', 'macArm', 'macX64']
+      .filter((k) => D[k].file !== primary.file)
+      .map((k) => `<a href="${GH + D[k].file}">${D[k].short}</a>`).join('')
   </script>
 </body>
 </html>

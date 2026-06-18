@@ -31,13 +31,16 @@ app.use((req, _res, next) => {
 const RELEASE_DIR = join(__dirname, '..', 'agent', 'release')
 app.use('/updates', express.static(RELEASE_DIR)) // electron-updater reads latest.yml here
 
-// Stable download link for the landing page (serves the latest built installer).
-app.get('/download/app', (_req, res) => {
-  try {
-    const exe = existsSync(RELEASE_DIR) && readdirSync(RELEASE_DIR).find((f) => f.endsWith('.exe'))
-    if (!exe) return res.status(404).send('No installer built yet. Run: cd agent && npm run dist')
-    res.download(join(RELEASE_DIR, exe), exe)
-  } catch { res.status(404).send('No installer available') }
+// Installer downloads. Installers are published as GitHub Release assets by CI
+// (.github/workflows/build-desktop.yml), so this redirects there — works even on
+// a host with an ephemeral filesystem (e.g. Render). ?platform=mac&arch=x64|arm64.
+const GH_RELEASE = 'https://github.com/LFGJoshua/DelegentApp/releases/latest/download'
+app.get('/download/app', (req, res) => {
+  const p = String(req.query.platform || '').toLowerCase()
+  const arch = String(req.query.arch || '').toLowerCase()
+  let file = 'Delegent-Setup.exe' // default: Windows
+  if (p === 'mac' || p === 'darwin') file = (arch === 'x64' || arch === 'intel') ? 'Delegent-mac-x64.dmg' : 'Delegent-mac-arm64.dmg'
+  res.redirect(302, `${GH_RELEASE}/${file}`)
 })
 
 // Landing page.
