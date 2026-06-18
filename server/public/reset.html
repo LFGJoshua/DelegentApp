@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delegent — Reset password</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <style>
+    :root { --nav:#0e3d2d; --green:#22a05a; --green-d:#15803d; --ink:#0f2a20; --muted:#5f6f67; --line:#e4ebe7; --bg:#f5f8f6; --red:#e8513b; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--ink);
+      min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:14px; width:380px; max-width:92vw;
+      box-shadow:0 12px 40px rgba(14,61,45,.12); overflow:hidden; }
+    .head { background:var(--nav); color:#fff; padding:22px 26px; }
+    .head .brandrow { display:flex; align-items:center; gap:10px; }
+    .head .tile { width:34px; height:34px; border-radius:9px; background:var(--green); color:#fff; font-weight:800; font-size:21px; display:flex; align-items:center; justify-content:center; }
+    .head .org { font-size:17px; color:#fff; font-weight:800; letter-spacing:.3px; }
+    .head .ttl { font-size:24px; font-weight:800; margin-top:10px; }
+    .body { padding:24px 26px 28px; }
+    label { display:block; font-size:13px; font-weight:600; color:var(--ink); margin:14px 0 5px; }
+    input { width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:8px; font-size:15px; outline:none; }
+    input:focus { border-color:var(--green); }
+    .pwwrap { position:relative; }
+    .pwwrap input { padding-right:44px; }
+    .pwtoggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:17px; line-height:1; opacity:.55; padding:6px; }
+    .pwtoggle:hover { opacity:1; }
+    .btn { width:100%; margin-top:20px; background:var(--green); color:#fff; border:none; padding:13px; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; }
+    .btn:hover { background:var(--green-d); } .btn:disabled { opacity:.6; cursor:default; }
+    .msg { font-size:13px; margin-top:14px; min-height:16px; } .msg.err { color:var(--red); } .msg.ok { color:var(--green-d); }
+    .reqs { margin-top:10px; font-size:12px; }
+    .reqs div { display:flex; align-items:center; gap:7px; color:var(--muted); margin-top:4px; }
+    .reqs div::before { content:'○'; color:#c2c8d0; font-size:13px; }
+    .reqs div.ok { color:var(--green-d); } .reqs div.ok::before { content:'✓'; color:var(--green); }
+    .link { display:block; text-align:center; margin-top:16px; font-size:13px; color:var(--green-d); text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <div class="brandrow"><span class="tile">D</span><span class="org">Delegent</span></div>
+      <div class="ttl">Reset password</div>
+    </div>
+    <div class="body">
+      <form id="form">
+        <label for="password">New password</label>
+        <div class="pwwrap">
+          <input id="password" type="password" autocomplete="new-password" placeholder="••••••••" required />
+          <button type="button" class="pwtoggle" id="pwToggle" title="Show password">👁</button>
+        </div>
+        <div class="reqs" id="reqs">
+          <div data-k="len">At least 8 characters</div>
+          <div data-k="upper">One uppercase letter</div>
+          <div data-k="num">One number</div>
+          <div data-k="special">One special character</div>
+        </div>
+        <label for="confirm">Confirm password</label>
+        <input id="confirm" type="password" autocomplete="new-password" placeholder="••••••••" required />
+        <button class="btn" id="submit" type="submit">Set new password</button>
+        <div class="msg" id="msg"></div>
+      </form>
+      <a class="link" href="/login">Back to sign in</a>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id)
+    const token = new URLSearchParams(location.search).get('token')
+    if (!token) { $('msg').className = 'msg err'; $('msg').textContent = 'Missing reset token. Use the link from your email.'; $('submit').disabled = true }
+
+    const pwChecks = (pw) => ({ len: pw.length >= 8, upper: /[A-Z]/.test(pw), num: /[0-9]/.test(pw), special: /[^A-Za-z0-9]/.test(pw) })
+    function renderReqs() {
+      const c = pwChecks($('password').value)
+      document.querySelectorAll('#reqs div').forEach((d) => d.classList.toggle('ok', !!c[d.dataset.k]))
+    }
+    $('password').addEventListener('input', renderReqs)
+    $('pwToggle').onclick = () => {
+      const t = $('password').type === 'password' ? 'text' : 'password'
+      $('password').type = t; $('confirm').type = t
+      $('pwToggle').textContent = t === 'text' ? '🙈' : '👁'
+    }
+    const fail = (m) => { $('msg').className = 'msg err'; $('msg').textContent = m }
+
+    $('form').onsubmit = async (e) => {
+      e.preventDefault()
+      const password = $('password').value, confirm = $('confirm').value
+      const c = pwChecks(password)
+      if (!(c.len && c.upper && c.num && c.special)) return fail('Password must meet all the requirements above')
+      if (password !== confirm) return fail('Passwords do not match')
+      $('submit').disabled = true; $('msg').className = 'msg'; $('msg').textContent = 'Saving…'
+      try {
+        const res = await fetch('/api/auth/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password }) })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Could not reset password')
+        $('msg').className = 'msg ok'; $('msg').textContent = 'Password updated! Redirecting to sign in…'
+        setTimeout(() => location.href = '/login', 1500)
+      } catch (err) { fail(err.message); $('submit').disabled = false }
+    }
+  </script>
+</body>
+</html>

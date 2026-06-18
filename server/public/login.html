@@ -63,18 +63,20 @@
         </div>
         <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@company.com" required />
-        <label for="password">Password</label>
-        <div class="pwwrap">
-          <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
-          <button type="button" class="pwtoggle" id="pwToggle" aria-label="Show password" title="Show password">👁</button>
+        <div id="pwField">
+          <label for="password">Password</label>
+          <div class="pwwrap">
+            <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+            <button type="button" class="pwtoggle" id="pwToggle" aria-label="Show password" title="Show password">👁</button>
+          </div>
+          <div class="reqs" id="reqs">
+            <div data-k="len">At least 8 characters</div>
+            <div data-k="upper">One uppercase letter</div>
+            <div data-k="num">One number</div>
+            <div data-k="special">One special character</div>
+          </div>
+          <div class="forgot" id="forgotRow"><a id="forgotLink">Forgot password?</a></div>
         </div>
-        <div class="reqs" id="reqs">
-          <div data-k="len">At least 8 characters</div>
-          <div data-k="upper">One uppercase letter</div>
-          <div data-k="num">One number</div>
-          <div data-k="special">One special character</div>
-        </div>
-        <div class="forgot" id="forgotRow"><a id="forgotLink">Forgot password?</a></div>
         <button class="btn" id="submit" type="submit">Sign in</button>
         <div class="msg" id="msg"></div>
       </form>
@@ -88,19 +90,26 @@
 
     function setMode(m) {
       mode = m
-      $('tabLogin').classList.toggle('on', m === 'login')
-      $('tabRegister').classList.toggle('on', m === 'register')
-      $('title').textContent = m === 'login' ? 'Sign in' : 'Create account'
-      $('submit').textContent = m === 'login' ? 'Sign in' : 'Create account'
-      $('nameField').style.display = m === 'register' ? 'block' : 'none'
-      $('reqs').style.display = m === 'register' ? 'block' : 'none'
-      $('forgotRow').style.display = m === 'login' ? 'block' : 'none'
-      $('password').autocomplete = m === 'login' ? 'current-password' : 'new-password'
-      $('hint').textContent = m === 'register'
-        ? 'The first account created becomes the admin/manager. Everyone after is an employee.'
-        : ''
+      const isLogin = m === 'login', isReg = m === 'register', isForgot = m === 'forgot'
+      $('tabLogin').classList.toggle('on', isLogin)
+      $('tabRegister').classList.toggle('on', isReg)
+      $('title').textContent = isForgot ? 'Reset password' : isReg ? 'Create account' : 'Sign in'
+      $('submit').textContent = isForgot ? 'Send reset link' : isReg ? 'Create account' : 'Sign in'
+      $('nameField').style.display = isReg ? 'block' : 'none'
+      $('pwField').style.display = isForgot ? 'none' : 'block'   // hide password/requirements/forgot-link
+      $('reqs').style.display = isReg ? 'block' : 'none'
+      $('forgotRow').style.display = isLogin ? 'block' : 'none'
+      $('password').autocomplete = isLogin ? 'current-password' : 'new-password'
+      if (isForgot) {
+        $('hint').innerHTML = 'Enter your account email and we’ll send a reset link. <a id="backLogin" style="color:var(--green-d);cursor:pointer">Back to sign in</a>'
+        $('backLogin').onclick = () => setMode('login')
+      } else if (isReg) {
+        $('hint').textContent = 'The first account created becomes the admin/manager. Everyone after is an employee.'
+      } else {
+        $('hint').textContent = ''
+      }
       $('msg').textContent = ''
-      if (m === 'register') renderReqs()
+      if (isReg) renderReqs()
     }
     $('tabLogin').onclick = () => setMode('login')
     $('tabRegister').onclick = () => setMode('register')
@@ -124,11 +133,24 @@
       $('pwToggle').title = show ? 'Hide password' : 'Show password'
     }
 
-    $('forgotLink').onclick = () => { $('msg').className = 'msg'; $('msg').textContent = 'Contact your administrator to reset your password.' }
+    $('forgotLink').onclick = () => setMode('forgot')
 
     $('form').onsubmit = async (e) => {
       e.preventDefault()
       const email = $('email').value.trim(), password = $('password').value, name = $('name').value.trim()
+
+      // Forgot-password: just send the reset email.
+      if (mode === 'forgot') {
+        if (!emailValid(email)) return fail('Please enter a valid email address')
+        $('submit').disabled = true; $('msg').className = 'msg'; $('msg').textContent = 'Sending…'
+        try {
+          await fetch('/api/auth/forgot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+          $('msg').className = 'msg ok'
+          $('msg').textContent = 'If an account exists for that email, a reset link is on its way. Check your inbox.'
+        } catch { fail('Could not send the reset email. Please try again.') }
+        $('submit').disabled = false
+        return
+      }
 
       // Field + password validation before submitting.
       if (mode === 'register' && !name) return fail('Please enter your name')

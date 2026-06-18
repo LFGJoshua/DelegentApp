@@ -100,6 +100,14 @@ async function init() {
       key   TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token       TEXT PRIMARY KEY,
+      user_id     TEXT NOT NULL,
+      expires_at  BIGINT NOT NULL,
+      used        INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
   `)
 }
 

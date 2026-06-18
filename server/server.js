@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { readdirSync, existsSync } from 'node:fs'
 import db from './db.js'
 import { putImage, imageUrl, getImage, storageReady } from './storage.js'
+import { sendMail, mailReady } from './mailer.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -47,6 +48,7 @@ app.get('/download/app', (req, res) => {
 // .html versions to them.
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')))
 app.get('/download', (_req, res) => res.sendFile(join(__dirname, 'public', 'download.html')))
+app.get('/reset', (_req, res) => res.sendFile(join(__dirname, 'public', 'reset.html')))
 app.get('/login.html', (_req, res) => res.redirect(301, '/login'))
 app.get('/download.html', (_req, res) => res.redirect(301, '/download'))
 
@@ -65,7 +67,7 @@ const insertShot = db.prepare(`
 `)
 
 // Health check.
-app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'delegent-server', storage: storageReady }))
+app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'delegent-server', storage: storageReady, mail: mailReady }))
 
 // ---- Authentication (accounts, sessions) ----
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -83,6 +85,12 @@ const updateUserRoleType = db.prepare('UPDATE users SET role = @role, user_type 
 const insertSession = db.prepare('INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (@token, @user_id, @created_at, @expires_at)')
 const getSession = db.prepare('SELECT * FROM sessions WHERE token = ?')
 const deleteSession = db.prepare('DELETE FROM sessions WHERE token = ?')
+const deleteUserSessions = db.prepare('DELETE FROM sessions WHERE user_id = ?')
+
+const insertReset = db.prepare('INSERT INTO password_resets (token, user_id, expires_at) VALUES (@token, @user_id, @expires_at)')
+const getReset = db.prepare('SELECT * FROM password_resets WHERE token = ?')
+const markResetUsed = db.prepare('UPDATE password_resets SET used = 1 WHERE token = ?')
+const updatePassword = db.prepare('UPDATE users SET pass_hash = @hash, pass_salt = @salt WHERE id = @id')
 
 // Password policy: min 8 chars, at least one uppercase, one number, one special
 // character. Returns an error string, or null if valid.
@@ -193,6 +201,50 @@ app.post('/api/auth/logout', async (req, res) => {
 })
 
 app.get('/api/auth/me', requireAuth, (req, res) => res.json({ user: publicUser(req.user) }))
+
+// ---- Password reset (email link) ----
+const RESET_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+// Request a reset link. Always returns ok (don't reveal whether the email exists).
+app.post('/api/auth/forgot', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase()
+  const u = email ? await getUserByEmail.get(email) : null
+  if (u) {
+    const token = randomBytes(32).toString('hex')
+    await insertReset.run({ token, user_id: u.id, expires_at: Date.now() + RESET_TTL_MS })
+    const base = (process.env.APP_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '')
+    const link = `${base}/reset?token=${token}`
+    try {
+      await sendMail({
+        to: u.email,
+        subject: 'Reset your Delegent password',
+        text: `Reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, ignore this email.`,
+        html: `<div style="font-family:'Segoe UI',Arial,sans-serif;color:#0f2a20;max-width:480px">
+          <h2 style="color:#15803d;margin:0 0 12px">Reset your Delegent password</h2>
+          <p>We received a request to reset your password. Click below to choose a new one:</p>
+          <p style="margin:20px 0"><a href="${link}" style="display:inline-block;background:#15803d;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700">Reset password</a></p>
+          <p style="color:#5f6f67;font-size:13px">Or paste this link into your browser:<br>${link}</p>
+          <p style="color:#5f6f67;font-size:13px">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+        </div>`,
+      })
+    } catch (e) { console.error('reset email failed:', e.message) }
+  }
+  res.json({ ok: true })
+})
+
+// Complete a reset with the token from the email link.
+app.post('/api/auth/reset', async (req, res) => {
+  const { token, password } = req.body || {}
+  const row = token ? await getReset.get(token) : null
+  if (!row || row.used || row.expires_at < Date.now()) return res.status(400).json({ error: 'This reset link is invalid or has expired.' })
+  const pwErr = validatePassword(password)
+  if (pwErr) return res.status(400).json({ error: pwErr })
+  const { salt, hash } = hashPassword(password)
+  await updatePassword.run({ id: row.user_id, hash, salt })
+  await markResetUsed.run(token)
+  await deleteUserSessions.run(row.user_id) // sign out all existing sessions
+  res.json({ ok: true })
+})
 
 // ---- Admin: user management (assign role + signal profile) ----
 app.get('/api/users', requireAdmin, async (_req, res) => {
