@@ -35,6 +35,14 @@
     .msg.err { color:var(--red); } .msg.ok { color:var(--green-d); }
     .hint { font-size:12px; color:var(--muted); margin-top:14px; line-height:1.5; }
     .name-field { display:none; }
+    .reqs { display:none; margin-top:10px; font-size:12px; }
+    .reqs div { display:flex; align-items:center; gap:7px; color:var(--muted); margin-top:4px; }
+    .reqs div::before { content:'○'; color:#c2c8d0; font-size:13px; }
+    .reqs div.ok { color:var(--green-d); }
+    .reqs div.ok::before { content:'✓'; color:var(--green); }
+    .forgot { text-align:right; margin-top:8px; }
+    .forgot a { font-size:12px; color:var(--green-d); cursor:pointer; text-decoration:none; }
+    .forgot a:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -60,6 +68,13 @@
           <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
           <button type="button" class="pwtoggle" id="pwToggle" aria-label="Show password" title="Show password">👁</button>
         </div>
+        <div class="reqs" id="reqs">
+          <div data-k="len">At least 8 characters</div>
+          <div data-k="upper">One uppercase letter</div>
+          <div data-k="num">One number</div>
+          <div data-k="special">One special character</div>
+        </div>
+        <div class="forgot" id="forgotRow"><a id="forgotLink">Forgot password?</a></div>
         <button class="btn" id="submit" type="submit">Sign in</button>
         <div class="msg" id="msg"></div>
       </form>
@@ -78,14 +93,27 @@
       $('title').textContent = m === 'login' ? 'Sign in' : 'Create account'
       $('submit').textContent = m === 'login' ? 'Sign in' : 'Create account'
       $('nameField').style.display = m === 'register' ? 'block' : 'none'
+      $('reqs').style.display = m === 'register' ? 'block' : 'none'
+      $('forgotRow').style.display = m === 'login' ? 'block' : 'none'
       $('password').autocomplete = m === 'login' ? 'current-password' : 'new-password'
       $('hint').textContent = m === 'register'
         ? 'The first account created becomes the admin/manager. Everyone after is an employee.'
         : ''
       $('msg').textContent = ''
+      if (m === 'register') renderReqs()
     }
     $('tabLogin').onclick = () => setMode('login')
     $('tabRegister').onclick = () => setMode('register')
+
+    // Live password-requirement checklist.
+    const pwChecks = (pw) => ({ len: pw.length >= 8, upper: /[A-Z]/.test(pw), num: /[0-9]/.test(pw), special: /[^A-Za-z0-9]/.test(pw) })
+    function renderReqs() {
+      const c = pwChecks($('password').value)
+      document.querySelectorAll('#reqs div').forEach((d) => d.classList.toggle('ok', !!c[d.dataset.k]))
+    }
+    $('password').addEventListener('input', () => { if (mode === 'register') renderReqs() })
+    const emailValid = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)
+    const fail = (m) => { $('msg').className = 'msg err'; $('msg').textContent = m }
 
     // Show / hide password.
     $('pwToggle').onclick = () => {
@@ -96,12 +124,25 @@
       $('pwToggle').title = show ? 'Hide password' : 'Show password'
     }
 
+    $('forgotLink').onclick = () => { $('msg').className = 'msg'; $('msg').textContent = 'Contact your administrator to reset your password.' }
+
     $('form').onsubmit = async (e) => {
       e.preventDefault()
+      const email = $('email').value.trim(), password = $('password').value, name = $('name').value.trim()
+
+      // Field + password validation before submitting.
+      if (mode === 'register' && !name) return fail('Please enter your name')
+      if (!email) return fail('Please enter your email')
+      if (!emailValid(email)) return fail('Please enter a valid email address')
+      if (!password) return fail('Please enter your password')
+      if (mode === 'register') {
+        const c = pwChecks(password)
+        if (!(c.len && c.upper && c.num && c.special)) return fail('Password must meet all the requirements below')
+      }
+
       $('submit').disabled = true
       $('msg').className = 'msg'; $('msg').textContent = 'Please wait…'
-      const body = { email: $('email').value.trim(), password: $('password').value }
-      if (mode === 'register') body.name = $('name').value.trim()
+      const body = mode === 'register' ? { name, email, password } : { email, password }
       try {
         const res = await fetch('/api/auth/' + mode, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),

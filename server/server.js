@@ -84,6 +84,16 @@ const insertSession = db.prepare('INSERT INTO sessions (token, user_id, created_
 const getSession = db.prepare('SELECT * FROM sessions WHERE token = ?')
 const deleteSession = db.prepare('DELETE FROM sessions WHERE token = ?')
 
+// Password policy: min 8 chars, at least one uppercase, one number, one special
+// character. Returns an error string, or null if valid.
+function validatePassword(pw) {
+  if (typeof pw !== 'string' || pw.length < 8) return 'Password must be at least 8 characters'
+  if (!/[A-Z]/.test(pw)) return 'Password must include an uppercase letter'
+  if (!/[0-9]/.test(pw)) return 'Password must include a number'
+  if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must include a special character'
+  return null
+}
+
 function hashPassword(pw) {
   const salt = randomBytes(16).toString('hex')
   const hash = scryptSync(String(pw), salt, 64).toString('hex')
@@ -152,7 +162,9 @@ app.post('/api/auth/register', async (req, res) => {
   const name = String(req.body?.name || '').trim()
   const password = req.body?.password || ''
   if (!email || !password) return res.status(400).json({ error: 'email and password are required' })
-  if (String(password).length < 6) return res.status(400).json({ error: 'password must be at least 6 characters' })
+  if (!name) return res.status(400).json({ error: 'name is required' })
+  const pwErr = validatePassword(password)
+  if (pwErr) return res.status(400).json({ error: pwErr })
   if (await getUserByEmail.get(email)) return res.status(409).json({ error: 'an account with that email already exists' })
 
   const role = (await countUsers.get()).n === 0 ? 'admin' : 'employee'
