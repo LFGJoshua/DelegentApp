@@ -43,8 +43,12 @@ app.get('/download/app', (req, res) => {
   res.redirect(302, `${GH_RELEASE}/${file}`)
 })
 
-// Landing page.
+// Clean URLs (no .html). Serve the pages at extension-less paths and 301 the
+// .html versions to them.
+app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')))
 app.get('/download', (_req, res) => res.sendFile(join(__dirname, 'public', 'download.html')))
+app.get('/login.html', (_req, res) => res.redirect(301, '/login'))
+app.get('/download.html', (_req, res) => res.redirect(301, '/download'))
 
 app.use('/', express.static(join(__dirname, 'public')))
 

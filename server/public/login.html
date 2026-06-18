@@ -24,6 +24,10 @@
     label { display:block; font-size:13px; font-weight:600; color:var(--ink); margin:14px 0 5px; }
     input { width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:8px; font-size:15px; outline:none; }
     input:focus { border-color:var(--green); }
+    .pwwrap { position:relative; }
+    .pwwrap input { padding-right:44px; }
+    .pwtoggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:17px; line-height:1; opacity:.55; padding:6px; }
+    .pwtoggle:hover { opacity:1; }
     .btn { width:100%; margin-top:20px; background:var(--green); color:#fff; border:none; padding:13px; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; }
     .btn:hover { background:var(--green-d); }
     .btn:disabled { opacity:.6; cursor:default; }
@@ -52,7 +56,10 @@
         <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@company.com" required />
         <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+        <div class="pwwrap">
+          <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+          <button type="button" class="pwtoggle" id="pwToggle" aria-label="Show password" title="Show password">👁</button>
+        </div>
         <button class="btn" id="submit" type="submit">Sign in</button>
         <div class="msg" id="msg"></div>
       </form>
@@ -79,6 +86,15 @@
     }
     $('tabLogin').onclick = () => setMode('login')
     $('tabRegister').onclick = () => setMode('register')
+
+    // Show / hide password.
+    $('pwToggle').onclick = () => {
+      const p = $('password')
+      const show = p.type === 'password'
+      p.type = show ? 'text' : 'password'
+      $('pwToggle').textContent = show ? '🙈' : '👁'
+      $('pwToggle').title = show ? 'Hide password' : 'Show password'
+    }
 
     $('form').onsubmit = async (e) => {
       e.preventDefault()

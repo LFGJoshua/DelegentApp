@@ -312,7 +312,7 @@
     window.fetch = async (url, opts) => {
       const res = await _fetch(url, opts)
       if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/') && !url.includes('/auth/')) {
-        location.href = '/login.html'
+        location.href = '/login'
       }
       return res
     }
@@ -589,7 +589,7 @@
     $('tabSettings').onclick = showSettings
     $('tabUsers').onclick = showUsers
     $('saveSettings').onclick = saveSettings
-    $('logoutBtn').onclick = async () => { await fetch('/api/auth/logout', { method:'POST' }); location.href = '/login.html' }
+    $('logoutBtn').onclick = async () => { await fetch('/api/auth/logout', { method:'POST' }); location.href = '/login' }
 
     // Report interactions
     $('repShow').onclick = loadReport
@@ -620,9 +620,9 @@
       let me
       try {
         const r = await _fetch('/api/auth/me')
-        if (!r.ok) { location.href = '/login.html'; return }
+        if (!r.ok) { location.href = '/login'; return }
         me = (await r.json()).user
-      } catch { location.href = '/login.html'; return }
+      } catch { location.href = '/login'; return }
       currentUser = me
       applyRole()
       await loadMembers()
