@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { readdirSync, existsSync } from 'node:fs'
 import db from './db.js'
-import { putImage, imageUrl, storageReady } from './storage.js'
+import { putImage, imageUrl, getImage, storageReady } from './storage.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -305,12 +305,32 @@ app.get('/api/screenshots', requireAuth, async (req, res) => {
         FROM screenshots s LEFT JOIN agents a ON a.id = s.agent_id
         ORDER BY s.captured_at DESC LIMIT ?
       `).all(limit)
-  const out = await Promise.all(rows.map(async (r) => ({
+  const out = rows.map((r) => ({
     id: r.id, agentId: r.agentId, agentName: r.agentName, capturedAt: r.capturedAt,
     receivedAt: r.receivedAt, activeApp: r.activeApp, width: r.width, height: r.height,
-    url: await imageUrl(r.file),
-  })))
+    url: '/api/img/' + r.id,
+  }))
   res.json(out)
+})
+
+// Image proxy — a STABLE, cacheable URL per screenshot. The browser caches each
+// image permanently (screenshots never change), so repeated dashboard polls
+// don't re-download them. Auth + ownership enforced (employees see only their own).
+const getShotOwner = db.prepare('SELECT agent_id, file FROM screenshots WHERE id = ?')
+app.get('/api/img/:id', requireAuth, async (req, res) => {
+  try {
+    const row = await getShotOwner.get(req.params.id)
+    if (!row) return res.status(404).end()
+    if (!isAdmin(req) && row.agent_id !== req.user.id) return res.status(403).end()
+    const r = await getImage(row.file)
+    if (!r || !r.ok) return res.status(502).end()
+    res.setHeader('Content-Type', 'image/png')
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
+    res.end(Buffer.from(await r.arrayBuffer()))
+  } catch (err) {
+    console.error('img proxy failed:', err)
+    res.status(500).end()
+  }
 })
 
 // ---- Time tracking ----
@@ -482,7 +502,7 @@ app.get('/api/overview', requireAuth, async (req, res) => {
   const agents = isAdmin(req)
     ? await db.prepare(`SELECT id, name, last_seen FROM agents`).all()
     : await db.prepare(`SELECT id, name, last_seen FROM agents WHERE id = ?`).all(req.user.id)
-  const lastShotStmt = db.prepare(`SELECT file, captured_at AS ts
+  const lastShotStmt = db.prepare(`SELECT id, captured_at AS ts
     FROM screenshots WHERE agent_id = ? ORDER BY captured_at DESC LIMIT 1`)
   const segStmt = db.prepare(`SELECT started_at, ended_at, seconds, open, trust_score, trust_flags FROM work_segments WHERE agent_id = ?`)
 
@@ -508,7 +528,7 @@ app.get('/api/overview', requireAuth, async (req, res) => {
     if (shot && shot.ts > lastActive) lastActive = shot.ts
     return {
       agentId: a.id, name: a.name || a.id.slice(0, 8), lastActive,
-      lastShotUrl: shot ? await imageUrl(shot.file) : null,
+      lastShotUrl: shot ? '/api/img/' + shot.id : null,
       today: Math.round(today / 1000), yesterday: Math.round(yest / 1000),
       week: Math.round(week / 1000), month: Math.round(month / 1000),
       trustScore: trustScore == null ? 100 : trustScore,
@@ -636,10 +656,10 @@ app.get('/api/day', requireAuth, async (req, res) => {
     FROM screenshots WHERE agent_id = ? AND captured_at >= ? AND captured_at < ?
     ORDER BY captured_at ASC
   `).all(agentId, dayStart, dayEnd)
-  const screenshots = await Promise.all(shotRows.map(async (s) => ({
+  const screenshots = shotRows.map((s) => ({
     id: s.id, capturedAt: s.capturedAt, activeApp: s.activeApp, activityPct: s.activityPct,
-    url: await imageUrl(s.file),
-  })))
+    url: '/api/img/' + s.id,
+  }))
 
   res.json({
     date: dayStart,

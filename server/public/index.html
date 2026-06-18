@@ -321,6 +321,7 @@
     const ALL_TYPES = ['Default', 'Developer', 'Virtual Assistant', 'Data Entry', 'Designer']
     // Minutes east of UTC (UTC+8 → 480) so the server buckets days in our local time.
     const TZMIN = -new Date().getTimezoneOffset()
+    let lastShotSig = null // signature of the rendered screenshots, to skip needless re-renders
     let agentId = null
     let view = new Date()        // month being viewed
     let sel = new Date()         // selected day
@@ -559,6 +560,11 @@
         return `<div class="hr ${s>0?'on':''}" title="${hm(s)}">${lbl}</div>`
       }).join('')
 
+      // Only re-render screenshots when there's a new one. Totals/notes/hours
+      // above already refreshed; existing image cards (cached) stay untouched.
+      const sig = agentId + '|' + ymd(sel) + '|' + d.screenshots.length + '|' + (d.screenshots[d.screenshots.length - 1]?.id || '')
+      if (sig === lastShotSig) return
+      lastShotSig = sig
       const periods = groupPeriods(d.screenshots)
       $('periods').innerHTML = periods.length ? periods.map(p=>{
         const acts = p.shots.map(s=>s.activityPct).filter(v=>v!=null)
@@ -606,7 +612,7 @@
     $('repPdf').onclick = () => window.print()
 
     // Refresh whichever live view is open (reports stay put).
-    setInterval(() => { if (currentView==='home') loadOverview(); else if (currentView==='day') loadDay() }, 5000)
+    setInterval(() => { if (currentView==='home') loadOverview(); else if (currentView==='day') loadDay() }, 30000)
 
     // Admins see the team; employees are scoped to their own data.
     function applyRole() {

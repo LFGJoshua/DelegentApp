@@ -29,6 +29,13 @@ export async function putImage(key, buf) {
   if (!res.ok) throw new Error(`storage upload ${res.status}: ${(await res.text()).slice(0, 200)}`)
 }
 
+// Fetch the raw object bytes (server-side) so we can proxy + cache them under a
+// stable URL. Returns the fetch Response (caller checks .ok and streams body).
+export async function getImage(key) {
+  if (!key || !storageReady) return null
+  return fetch(`${base}/object/authenticated/${encodeURIComponent(bucket)}/${encodeURIComponent(key)}`, { headers: authHeader })
+}
+
 // A short-lived signed URL for a stored key (bucket stays private).
 export async function imageUrl(key) {
   if (!key || !storageReady) return null
