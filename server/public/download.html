@@ -94,7 +94,7 @@
     $('dlMeta').textContent = primary.meta
     $(isMac ? 'gatekeeper' : 'smartscreen').style.display = 'block'
     // .zip fallback for when the browser blocks the raw installer download.
-    $('zipFallback').innerHTML = `<a href="${GH + primary.zip}">Download blocked by your browser? Get the .zip instead</a>`
+    $('zipFallback').innerHTML = `<a href="${GH + primary.zip}">Download blocked by your browser? Get the .zip — then unzip and open the file inside</a>`
 
     // Show the other platforms as secondary links (browsers can't reliably tell
     // Apple Silicon from Intel, so we list both).

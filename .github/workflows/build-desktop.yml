@@ -42,6 +42,13 @@ jobs:
           # secrets later if you get a Developer ID certificate.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
+      # Browser-friendly download: a .zip that contains just the installer .exe
+      # (so it extracts to a single file, not the raw app folder).
+      - name: Bundle Windows installer as .zip
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: Compress-Archive -Path agent/release/Delegent-Setup.exe -DestinationPath agent/release/Delegent-Setup.zip -Force
+
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:

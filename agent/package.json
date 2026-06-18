@@ -1,6 +1,6 @@
 {
   "name": "delegent-agent",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Delegent monitoring agent — captures the screen on an interval and uploads to the backend.",
   "private": true,
   "main": "electron/main.cjs",
@@ -35,7 +35,7 @@
       "electron/keyhook.ps1"
     ],
     "win": {
-      "target": ["nsis", "zip"],
+      "target": "nsis",
       "artifactName": "Delegent-Setup.${ext}",
       "signAndEditExecutable": false
     },
