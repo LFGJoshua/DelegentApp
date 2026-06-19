@@ -67,6 +67,12 @@
   .dl-cta { display: inline-flex; align-items: center; gap: 11px; background: var(--brand); color: #030712; padding: 17px 40px; border-radius: 13px; text-decoration: none; font-size: 16px; font-weight: 800; transition: all 0.3s; box-shadow: 0 0 28px var(--glow); }
   .dl-cta:hover { background: var(--brand-hover); box-shadow: 0 0 44px var(--glow-strong); transform: translateY(-2px); }
   .dl-cta svg { width: 19px; height: 19px; }
+  /* Coming-soon (non-clickable) variants */
+  .coming { cursor: default; }
+  .nav-btn.coming, .dl-cta.coming { background: rgba(45,212,191,0.12); color: var(--brand); box-shadow: none; }
+  .nav-btn.coming:hover, .dl-cta.coming:hover { background: rgba(45,212,191,0.12); box-shadow: none; transform: none; }
+  .pc-btn.coming { background: rgba(45,212,191,0.1); color: var(--brand); border: 1px solid rgba(45,212,191,0.18) !important; }
+  .pc-btn.coming:hover { background: rgba(45,212,191,0.1); box-shadow: none; transform: none; }
   .wl-note { margin-top: 18px; font-size: 13px; color: var(--t3); position: relative; }
 
   /* --- STATS --- */
@@ -179,7 +185,7 @@
     </div>
     <div class="nav-right">
       <a href="/login" class="nav-login">Login</a>
-      <a href="/download" class="nav-btn">Download</a>
+      <span class="nav-btn coming">Coming Soon</span>
     </div>
   </div>
 </nav>
@@ -192,12 +198,12 @@
   <p class="hero-p">Time tracking, random screenshots, activity monitoring, and productivity scoring. Built specifically for VA teams. Replace guesswork with data.</p>
 
   <div class="cta-wrap" id="download">
-    <a href="/download" class="dl-cta">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>
-      Download for Windows &amp; Mac
-    </a>
+    <span class="dl-cta coming">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Coming Soon
+    </span>
   </div>
-  <p class="wl-note">Free during early access &middot; Windows 10/11 &amp; macOS</p>
+  <p class="wl-note">Desktop apps for Windows &amp; macOS launching soon</p>
 
   <div class="stats rv">
     <div class="st"><div class="st-val">30<span>/hr</span></div><div class="st-lbl">Screenshots</div></div>
@@ -280,7 +286,7 @@
         <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Basic dashboard</li>
         <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> 1 manager seat</li>
       </ul>
-      <a href="/download" class="pc-btn pc-btn-out">Download</a>
+      <span class="pc-btn pc-btn-out coming">Coming Soon</span>
     </div>
 
     <div class="pc pop rv rv-d1">
@@ -298,7 +304,7 @@
         <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Weekly reports</li>
         <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> 3 manager seats</li>
       </ul>
-      <a href="/download" class="pc-btn pc-btn-fill">Download</a>
+      <span class="pc-btn pc-btn-fill coming">Coming Soon</span>
     </div>
 
     <div class="pc rv rv-d2">
@@ -313,7 +319,7 @@
         <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Unlimited managers</li>
         <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Priority support</li>
       </ul>
-      <a href="/download" class="pc-btn pc-btn-out">Download</a>
+      <span class="pc-btn pc-btn-out coming">Coming Soon</span>
     </div>
   </div>
 </section>
@@ -324,10 +330,10 @@
   <h2>Ready to stop guessing what your VAs are doing?</h2>
   <p>Download Delegent and set up your team in minutes.</p>
   <div class="cta-wrap">
-    <a href="/download" class="dl-cta">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>
-      Download Delegent
-    </a>
+    <span class="dl-cta coming">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Coming Soon
+    </span>
   </div>
 </section>
 
