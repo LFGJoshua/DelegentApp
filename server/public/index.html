@@ -153,6 +153,19 @@
     .det .muted { color:#8a93a0; }
     .det .empty-row td { text-align:center; color:var(--muted); padding:30px; }
 
+    /* Daily-by-employee expandable tree */
+    .tree { font-size:14px; }
+    .thead { display:flex; background:#eef3f0; padding:12px 14px; font-weight:700; color:var(--accent); font-size:13px; }
+    .trow { display:flex; align-items:center; padding:12px 14px; border-bottom:1px solid var(--line); color:#3a4452; }
+    .trow .tname { flex:1; display:flex; align-items:center; gap:7px; }
+    .trow .tdur { width:120px; text-align:right; } .trow .tact { width:90px; text-align:right; }
+    .thead .tname { flex:1; } .thead .tdur { width:120px; text-align:right; } .thead .tact { width:90px; text-align:right; }
+    .trow.emp { font-weight:700; background:#f1f7f3; cursor:pointer; }
+    .trow.day { cursor:pointer; }
+    .trow.day .tname { padding-left:20px; } .trow.note .tname { padding-left:42px; color:#5b6471; }
+    .tw { color:var(--accent); width:14px; display:inline-block; font-weight:700; }
+    .trow.note .tw { visibility:hidden; }
+
     /* Admin settings */
     .set-intro { background:#fcf3d8; border:1px solid #ecdca0; color:#7a5b00; padding:12px 16px; border-radius:8px; font-size:14px; margin-bottom:18px; max-width:760px; }
     .set-row { display:flex; align-items:center; gap:14px; margin-bottom:18px; max-width:760px; }
@@ -265,7 +278,7 @@
           <input class="rep-input" placeholder="Select projects" disabled />
           <input class="rep-input" id="repNote" placeholder="Note contains text" />
           <div class="rep-types">
-            <a>Summary by project</a><a>Summary by employee</a><a>Daily by employee</a><a data-type="detailed">Detailed</a><a data-type="apps" class="on">Apps &amp; URLs</a>
+            <a>Summary by project</a><a>Summary by employee</a><a data-type="daily">Daily by employee</a><a data-type="detailed">Detailed</a><a data-type="apps" class="on">Apps &amp; URLs</a>
           </div>
           <div class="rep-actions">
             <a id="repExcel">⬇ Excel</a><a id="repPdf">⬇ PDF</a>
@@ -284,6 +297,7 @@
           <div id="repTableBody"></div>
         </div>
         <div id="repDetailed" style="display:none"></div>
+        <div id="repDaily" style="display:none"></div>
       </div><!-- /reportView -->
 
       <div id="settingsView" style="display:none">
@@ -481,10 +495,13 @@
     // ---- Reports ----
     const APP_COLORS = ['#3b6fd6','#d6453b','#e8a33b','#39a85a','#8b3bd6','#3bc0d6','#d63b9e','#7a8a3b','#b0563b','#5b6471','#c2c8d0']
     let repFrom = null, repTo = null
-    let repType = 'apps' // 'apps' | 'detailed' (just highlights the link; both show donut + detailed table)
+    let repType = 'apps' // 'apps' | 'detailed' | 'daily' — donut stays on top; this picks the section below
     function applyRepType(t) {
       repType = t
       document.querySelectorAll('.rep-types a[data-type]').forEach(a => a.classList.toggle('on', a.dataset.type === t))
+      $('repTableView').style.display = t === 'apps' ? 'block' : 'none'
+      $('repDetailed').style.display = t === 'detailed' ? 'block' : 'none'
+      $('repDaily').style.display = t === 'daily' ? 'block' : 'none'
     }
     const fmtD = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(2)}`
     const apiD = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -527,10 +544,10 @@
       const empName = ($('repEmployee').options[$('repEmployee').selectedIndex]||{}).text || ''
       $('repTableBody').innerHTML = `<div class="rrow"><span><b>${esc(empName)}</b></span><span>${hm(data.totalWorked)}</span><span>${data.activity}%</span></div>`
       window._repData = data
-      // Always show the detailed session table beneath the donut.
-      $('repTableView').style.display = 'none'
-      $('repDetailed').style.display = 'block'
-      await loadDetailed(id)
+      // Donut stays on top; show the section for the selected report type below it.
+      applyRepType(repType)
+      if (repType === 'detailed') await loadDetailed(id)
+      else if (repType === 'daily') await loadDaily(id)
     }
 
     async function loadDetailed(id) {
@@ -552,6 +569,31 @@
         <thead><tr><th>Date</th><th>Employee</th><th>Project</th><th>Note</th><th>From</th><th>To</th><th class="r">Duration</th><th class="r">Activity</th></tr></thead>
         <tbody>${body}</tbody></table>`
       window._repDetailed = { employee: data.employee, rows }
+    }
+
+    async function loadDaily(id) {
+      const data = await fetch(`/api/report/daily?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}&tz=${TZMIN}`).then(r=>r.json())
+      const days = data.days || []
+      const dDate = (ts) => new Date(ts).toLocaleDateString(undefined,{ weekday:'short', day:'2-digit', month:'short' })
+      const head = `<div class="thead"><span class="tname">± Employee / ± Date / ± Note</span><span class="tdur">Duration</span><span class="tact">Activity</span></div>`
+      const empRow = `<div class="trow emp" id="dEmp"><span class="tname"><span class="tw">⊟</span>${esc(data.employee)}</span><span class="tdur">${hm(data.total.seconds)}</span><span class="tact">${data.total.activity}%</span></div>`
+      const dayRows = days.length ? days.map((d,i)=>`
+        <div class="trow day" data-day="${i}"><span class="tname"><span class="tw">⊞</span>${dDate(d.date)}</span><span class="tdur">${hm(d.seconds)}</span><span class="tact">${d.activity==null?'—':d.activity+'%'}</span></div>
+        <div data-daych="${i}" style="display:none">
+          ${d.notes.map(n=>`<div class="trow note"><span class="tname"><span class="tw"></span>${esc(n.note)}</span><span class="tdur">${hm(n.seconds)}</span><span class="tact"></span></div>`).join('')}
+        </div>`).join('') : '<div class="trow"><span class="tname" style="color:#8a93a0;padding-left:20px">No sessions in this range.</span><span class="tdur"></span><span class="tact"></span></div>'
+      $('repDaily').innerHTML = `<div class="tree">${head}${empRow}<div id="dEmpCh">${dayRows}</div></div>`
+      let empOpen = true
+      $('dEmp').onclick = () => { empOpen = !empOpen; $('dEmpCh').style.display = empOpen ? 'block' : 'none'; $('dEmp').querySelector('.tw').textContent = empOpen ? '⊟' : '⊞' }
+      $('repDaily').querySelectorAll('.trow.day').forEach(row => {
+        row.onclick = () => {
+          const ch = $('repDaily').querySelector(`[data-daych="${row.dataset.day}"]`)
+          const open = ch.style.display === 'none'
+          ch.style.display = open ? 'block' : 'none'
+          row.querySelector('.tw').textContent = open ? '⊟' : '⊞'
+        }
+      })
+      window._repDaily = data
     }
 
     async function loadCalendar() {
@@ -646,6 +688,12 @@
     ;[...document.querySelectorAll('.rep-types a[data-type]')].forEach(a => a.onclick = () => { applyRepType(a.dataset.type); loadReport() })
     $('repExcel').onclick = () => {
       const dl = (csv) => { const u = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); const x = document.createElement('a'); x.href = u; x.download = 'delegent-report.csv'; x.click() }
+      if (repType === 'daily') {
+        const d = window._repDaily; if (!d) return
+        const csv = 'Date,DayDuration,DayActivity,Note,NoteDuration\n' + d.days.flatMap(day =>
+          day.notes.map(n => `${apiD(new Date(day.date))},${hm(day.seconds)},${day.activity==null?'':day.activity+'%'},"${(n.note||'').replace(/"/g,'""')}",${hm(n.seconds)}`)).join('\n')
+        return dl(csv)
+      }
       if (repType === 'detailed') {
         const d = window._repDetailed; if (!d) return
         const csv = 'Date,Employee,Note,From,To,Duration,Activity\n' + d.rows.map(r =>

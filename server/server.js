@@ -582,6 +582,59 @@ app.get('/api/report/detailed', requireAuth, async (req, res) => {
   res.json({ employee, rows })
 })
 
+// Daily-by-employee report: per-day totals (duration + avg activity) for one
+// employee over a range, each day broken down by note.
+app.get('/api/report/daily', requireAuth, async (req, res) => {
+  const agentId = isAdmin(req) ? req.query.agentId : req.user.id
+  if (!agentId) return res.status(400).json({ error: 'agentId required' })
+  const tz = tzMin(req)
+  const [fy, fm, fd] = String(req.query.from || '').split('-').map(Number)
+  const [ty, tm, td] = String(req.query.to || '').split('-').map(Number)
+  const fromStart = localDayMs(fy, fm - 1, fd, tz)
+  const toEnd = localDayMs(ty, tm - 1, td, tz) + 86400000
+  const now = Date.now()
+  const agent = await db.prepare('SELECT name FROM agents WHERE id = ?').get(agentId)
+  const employee = (agent && agent.name) || agentId.slice(0, 8)
+
+  const segs = await db.prepare(`SELECT started_at, ended_at, seconds, open, note FROM work_segments
+    WHERE agent_id = ? AND started_at >= ? AND started_at < ? ORDER BY started_at ASC`).all(agentId, fromStart, toEnd)
+  const shots = await db.prepare(`SELECT captured_at AS t, activity_pct AS a FROM screenshots
+    WHERE agent_id = ? AND captured_at >= ? AND captured_at < ?`).all(agentId, fromStart, toEnd)
+
+  const byDay = new Map() // dayMs -> { seconds, notes:Map }
+  let totalSec = 0
+  for (const s of segs) {
+    const [st, en] = segInterval(s, now)
+    const secs = Math.round((en - st) / 1000)
+    if (secs <= 0) continue
+    const dk = startOfLocalDay(st, tz)
+    const e = byDay.get(dk) || { seconds: 0, notes: new Map() }
+    e.seconds += secs
+    const note = (s.note && s.note.trim()) || 'No note'
+    e.notes.set(note, (e.notes.get(note) || 0) + secs)
+    byDay.set(dk, e)
+    totalSec += secs
+  }
+  const actByDay = new Map()
+  let actSum = 0, actN = 0
+  for (const x of shots) {
+    if (x.a == null) continue
+    const dk = startOfLocalDay(x.t, tz)
+    const a = actByDay.get(dk) || { sum: 0, n: 0 }
+    a.sum += x.a; a.n++; actByDay.set(dk, a)
+    actSum += x.a; actN++
+  }
+  const days = [...byDay.entries()].sort((a, b) => b[0] - a[0]).map(([dk, e]) => {
+    const act = actByDay.get(dk)
+    return {
+      date: dk, seconds: e.seconds,
+      activity: act && act.n ? Math.round(act.sum / act.n) : null,
+      notes: [...e.notes.entries()].map(([note, seconds]) => ({ note, seconds })).sort((x, y) => y.seconds - x.seconds),
+    }
+  })
+  res.json({ employee, total: { seconds: totalSec, activity: actN ? Math.round(actSum / actN) : 0 }, days })
+})
+
 // Home overview: one row per agent with last-active + Today/Yesterday/Week/Month
 // totals and the latest screenshot thumbnail.
 app.get('/api/overview', requireAuth, async (req, res) => {
