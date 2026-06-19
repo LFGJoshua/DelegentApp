@@ -175,7 +175,7 @@
         $('msg').textContent = mode === 'register'
           ? `Welcome${data.user.role === 'admin' ? ', admin' : ''}! Redirecting…`
           : 'Signed in. Redirecting…'
-        location.href = '/'
+        location.href = '/dashboard'
       } catch (err) {
         $('msg').className = 'msg err'; $('msg').textContent = err.message
         $('submit').disabled = false
@@ -183,7 +183,7 @@
     }
 
     // If already signed in, skip straight to the dashboard.
-    fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/' }).catch(() => {})
+    fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/dashboard' }).catch(() => {})
     // ?register=1 opens the create-account tab (used by the dashboard's "no account" link).
     if (new URLSearchParams(location.search).get('register')) setMode('register')
   </script>

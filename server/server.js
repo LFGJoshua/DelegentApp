@@ -46,13 +46,17 @@ app.get('/download/app', (req, res) => {
 
 // Clean URLs (no .html). Serve the pages at extension-less paths and 301 the
 // .html versions to them.
+app.get('/', (_req, res) => res.sendFile(join(__dirname, 'public', 'landing.html')))      // public marketing page
+app.get('/dashboard', (_req, res) => res.sendFile(join(__dirname, 'public', 'index.html'))) // the app (auth-gated client-side)
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')))
 app.get('/download', (_req, res) => res.sendFile(join(__dirname, 'public', 'download.html')))
 app.get('/reset', (_req, res) => res.sendFile(join(__dirname, 'public', 'reset.html')))
 app.get('/login.html', (_req, res) => res.redirect(301, '/login'))
 app.get('/download.html', (_req, res) => res.redirect(301, '/download'))
 
+// index:false so static doesn't auto-serve index.html (the dashboard) at "/".
 app.use('/', express.static(join(__dirname, 'public'), {
+  index: false,
   setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache') },
 }))
 

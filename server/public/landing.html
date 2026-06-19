@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Delegent - Know What Your VAs Are Doing</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: #cbd5e1; background: #030712; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+
+  :root {
+    --brand: #2dd4bf; --brand-hover: #5eead4; --brand-dim: #0d9488;
+    --glow: rgba(45,212,191,0.12); --glow-md: rgba(45,212,191,0.06); --glow-strong: rgba(45,212,191,0.25);
+    --glass: rgba(15,23,42,0.45); --border: rgba(45,212,191,0.07); --border-h: rgba(45,212,191,0.2);
+    --t1: #f1f5f9; --t2: #94a3b8; --t3: #64748b;
+  }
+
+  /* --- BG --- */
+  .bg-mesh { position: fixed; inset: 0; z-index: -2; }
+  .bg-mesh::before, .bg-mesh::after { content: ''; position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
+  .bg-mesh::before { width: 900px; height: 900px; top: -300px; left: -200px; background: radial-gradient(circle, rgba(45,212,191,0.06), transparent 65%); animation: drift1 22s ease-in-out infinite; }
+  .bg-mesh::after { width: 700px; height: 700px; bottom: -200px; right: -150px; background: radial-gradient(circle, rgba(6,182,212,0.04), transparent 65%); animation: drift2 28s ease-in-out infinite; }
+  @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(100px,80px)} }
+  @keyframes drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-80px,-60px)} }
+
+  .grid-bg {
+    position: fixed; inset: 0; z-index: -1;
+    background-image: linear-gradient(rgba(45,212,191,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(45,212,191,0.018) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(ellipse 55% 45% at 50% 25%, black 15%, transparent 100%);
+  }
+
+  /* --- NAV --- */
+  nav { position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border); background: rgba(3,7,18,0.65); backdrop-filter: blur(24px) saturate(1.3); }
+  .nav-in { max-width: 1200px; margin: 0 auto; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-m { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #0d3d56 0%, #071a2b 100%); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(45,212,191,0.12); box-shadow: 0 0 16px rgba(45,212,191,0.08); position: relative; overflow: hidden; }
+  .logo-m::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 40%, rgba(45,212,191,0.08) 100%); }
+  .logo-m svg { width: 22px; height: 22px; position: relative; z-index: 1; }
+  .logo-n { font-size: 22px; font-weight: 800; color: var(--t1); letter-spacing: -0.02em; }
+  .nav-right { display: flex; align-items: center; gap: 22px; }
+  .nav-login { color: var(--t2); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.3s; }
+  .nav-login:hover { color: var(--t1); }
+  .nav-btn { background: var(--brand); color: #030712; padding: 10px 24px; border-radius: 9px; text-decoration: none; font-size: 14px; font-weight: 700; transition: all 0.3s; box-shadow: 0 0 20px rgba(45,212,191,0.08); }
+  .nav-btn:hover { background: var(--brand-hover); box-shadow: 0 0 32px var(--glow-strong); transform: translateY(-1px); }
+
+  /* --- HERO --- */
+  .hero { max-width: 1200px; margin: 0 auto; padding: 120px 28px 80px; text-align: center; position: relative; }
+  .hero-glow { position: absolute; top: -80px; left: 50%; transform: translateX(-50%); width: 800px; height: 500px; background: radial-gradient(ellipse, rgba(45,212,191,0.08) 0%, rgba(6,182,212,0.03) 40%, transparent 70%); filter: blur(60px); pointer-events: none; }
+
+  .pill { display: inline-flex; align-items: center; gap: 10px; background: var(--glass); border: 1px solid var(--border); backdrop-filter: blur(16px); color: var(--brand); padding: 9px 22px; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 36px; position: relative; }
+  .pill-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); position: relative; }
+  .pill-dot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: var(--brand); opacity: 0; animation: ping 2s cubic-bezier(0,0,0.2,1) infinite; }
+  @keyframes ping { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(2.5);opacity:0} }
+
+  .hero h1 { font-size: clamp(38px, 5.5vw, 66px); font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: var(--t1); position: relative; }
+  .hero h1 .grad { background: linear-gradient(135deg, #2dd4bf 0%, #06b6d4 40%, #22d3ee 70%, #2dd4bf 100%); background-size: 300% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: gradMove 6s linear infinite; }
+  @keyframes gradMove { 0%{background-position:0% center} 100%{background-position:300% center} }
+
+  .hero-p { margin-top: 26px; font-size: 18px; color: var(--t2); max-width: 580px; margin-left: auto; margin-right: auto; line-height: 1.7; position: relative; }
+
+  /* --- DOWNLOAD CTA --- */
+  .cta-wrap { margin-top: 52px; position: relative; }
+  .dl-cta { display: inline-flex; align-items: center; gap: 11px; background: var(--brand); color: #030712; padding: 17px 40px; border-radius: 13px; text-decoration: none; font-size: 16px; font-weight: 800; transition: all 0.3s; box-shadow: 0 0 28px var(--glow); }
+  .dl-cta:hover { background: var(--brand-hover); box-shadow: 0 0 44px var(--glow-strong); transform: translateY(-2px); }
+  .dl-cta svg { width: 19px; height: 19px; }
+  .wl-note { margin-top: 18px; font-size: 13px; color: var(--t3); position: relative; }
+
+  /* --- STATS --- */
+  .stats { max-width: 800px; margin: 64px auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; position: relative; }
+  .st { text-align: center; padding: 20px 12px; background: var(--glass); border: 1px solid var(--border); border-radius: 14px; backdrop-filter: blur(12px); transition: all 0.3s; }
+  .st:hover { border-color: var(--border-h); transform: translateY(-2px); box-shadow: 0 8px 24px var(--glow-md); }
+  .st-val { font-size: 26px; font-weight: 900; color: var(--t1); }
+  .st-val span { color: var(--brand); font-weight: 700; }
+  .st-lbl { font-size: 11px; color: var(--t3); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+
+  /* --- FEATURES --- */
+  .features { max-width: 1200px; margin: 0 auto; padding: 100px 28px 80px; }
+  .sec-hd { text-align: center; margin-bottom: 56px; }
+  .sec-tag { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--brand); margin-bottom: 14px; }
+  .sec-tag::before, .sec-tag::after { content: ''; width: 24px; height: 1px; background: linear-gradient(90deg, transparent, var(--brand)); }
+  .sec-tag::after { background: linear-gradient(90deg, var(--brand), transparent); }
+  .sec-hd h2 { font-size: 34px; font-weight: 800; color: var(--t1); letter-spacing: -0.025em; }
+  .sec-hd .sub { margin-top: 12px; color: var(--t2); font-size: 16px; }
+
+  .f-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+  .fc { background: var(--glass); border: 1px solid var(--border); backdrop-filter: blur(12px); border-radius: 18px; padding: 32px; position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); cursor: default; }
+  .fc::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(45,212,191,0.06) 0%, transparent 60%); opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+  .fc:hover { border-color: var(--border-h); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(45,212,191,0.06); }
+  .fc:hover::before { opacity: 1; }
+  .fc-top { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(45,212,191,0.2), transparent); opacity: 0; transition: opacity 0.3s; }
+  .fc:hover .fc-top { opacity: 1; }
+  .fc-icon { width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, rgba(45,212,191,0.1) 0%, rgba(6,182,212,0.05) 100%); border: 1px solid rgba(45,212,191,0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; transition: all 0.3s; position: relative; }
+  .fc:hover .fc-icon { background: linear-gradient(135deg, rgba(45,212,191,0.15) 0%, rgba(6,182,212,0.08) 100%); border-color: rgba(45,212,191,0.2); box-shadow: 0 0 20px var(--glow); transform: scale(1.05); }
+  .fc-icon svg { width: 24px; height: 24px; stroke: var(--brand); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; transition: all 0.3s; }
+  .fc:hover .fc-icon svg { stroke: var(--brand-hover); filter: drop-shadow(0 0 6px rgba(45,212,191,0.3)); }
+  .fc h3 { font-size: 17px; font-weight: 700; color: var(--t1); margin-bottom: 10px; }
+  .fc p { font-size: 14px; color: var(--t2); line-height: 1.7; }
+
+  /* --- PRICING --- */
+  .pricing { max-width: 1200px; margin: 0 auto; padding: 80px 28px; text-align: center; }
+  .tog { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 36px; }
+  .tog-l { font-size: 14px; font-weight: 600; color: var(--t3); transition: color 0.25s; cursor: pointer; }
+  .tog-l.on { color: var(--t1); }
+  .tog-t { width: 50px; height: 28px; background: #1e293b; border-radius: 999px; position: relative; cursor: pointer; transition: all 0.3s; border: 1px solid rgba(45,212,191,0.08); }
+  .tog-t.on { background: var(--brand-dim); border-color: rgba(45,212,191,0.3); box-shadow: 0 0 16px var(--glow); }
+  .tog-k { width: 22px; height: 22px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 3px; transition: transform 0.3s cubic-bezier(0.68,-0.55,0.27,1.55); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .tog-t.on .tog-k { transform: translateX(22px); }
+  .save-p { background: rgba(45,212,191,0.08); color: var(--brand); padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid rgba(45,212,191,0.12); animation: fadeScale 0.3s ease-out; }
+  @keyframes fadeScale { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+
+  .p-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; margin-top: 52px; max-width: 980px; margin-left: auto; margin-right: auto; }
+  .pc { background: var(--glass); border: 1px solid var(--border); backdrop-filter: blur(12px); border-radius: 20px; padding: 36px 30px; text-align: left; position: relative; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); overflow: hidden; }
+  .pc:hover { border-color: var(--border-h); transform: translateY(-3px); }
+  .pc.pop { border-color: rgba(45,212,191,0.3); background: linear-gradient(180deg, rgba(45,212,191,0.03) 0%, var(--glass) 100%); box-shadow: 0 0 60px rgba(45,212,191,0.06), inset 0 1px 0 rgba(45,212,191,0.1); }
+  .pc.pop::before { content: ''; position: absolute; top: -1px; left: 15%; right: 15%; height: 2px; background: linear-gradient(90deg, transparent, var(--brand), transparent); border-radius: 2px; }
+  .pc.pop::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 120px; background: linear-gradient(180deg, rgba(45,212,191,0.04), transparent); pointer-events: none; }
+  .pc h3 { font-size: 18px; font-weight: 700; color: var(--t1); position: relative; z-index: 1; }
+  .pc-pr { margin-top: 14px; position: relative; z-index: 1; }
+  .pc-amt { font-size: 48px; font-weight: 900; color: var(--t1); letter-spacing: -0.04em; transition: all 0.3s; }
+  .pc-per { font-size: 14px; color: var(--t3); margin-left: 2px; }
+  .pc-an { font-size: 12px; color: var(--t3); margin-top: 4px; height: 16px; }
+  .pop-b { display: inline-block; margin-top: 14px; background: rgba(45,212,191,0.08); color: var(--brand); padding: 6px 16px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid rgba(45,212,191,0.1); position: relative; z-index: 1; }
+  .pc ul { list-style: none; margin-top: 28px; position: relative; z-index: 1; }
+  .pc li { font-size: 14px; color: var(--t2); padding: 8px 0; display: flex; align-items: center; gap: 12px; }
+  .ck-wrap { width: 20px; height: 20px; border-radius: 6px; background: rgba(45,212,191,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ck-wrap svg { width: 12px; height: 12px; stroke: var(--brand); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+  .pc-btn { display: block; width: 100%; margin-top: 32px; padding: 14px; border-radius: 11px; text-align: center; font-size: 14px; font-weight: 700; text-decoration: none; transition: all 0.3s; cursor: pointer; border: none; font-family: inherit; position: relative; z-index: 1; overflow: hidden; }
+  .pc-btn-fill { background: var(--brand); color: #030712; }
+  .pc-btn-fill:hover { background: var(--brand-hover); box-shadow: 0 0 28px var(--glow-strong); transform: translateY(-1px); }
+  .pc-btn-out { background: transparent; color: var(--t2); border: 1px solid var(--border) !important; }
+  .pc-btn-out:hover { border-color: var(--border-h) !important; color: var(--t1); background: rgba(45,212,191,0.03); }
+
+  /* --- BOTTOM CTA --- */
+  .bcta { max-width: 1200px; margin: 0 auto; padding: 80px 28px 100px; text-align: center; position: relative; }
+  .bcta-glow { position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(45,212,191,0.06), transparent 70%); filter: blur(60px); pointer-events: none; }
+  .bcta h2 { font-size: 30px; font-weight: 800; color: var(--t1); letter-spacing: -0.02em; position: relative; }
+  .bcta > p { margin-top: 14px; color: var(--t2); font-size: 16px; position: relative; }
+  .bcta .cta-wrap { margin-top: 40px; }
+
+  /* --- FOOTER --- */
+  footer { border-top: 1px solid var(--border); padding: 36px 28px; text-align: center; font-size: 13px; color: var(--t3); }
+
+  /* --- ANIMATIONS --- */
+  .rv { opacity: 0; transform: translateY(28px); transition: all 0.8s cubic-bezier(0.16,1,0.3,1); }
+  .rv.vis { opacity: 1; transform: translateY(0); }
+  .rv-d1 { transition-delay: 0.1s; } .rv-d2 { transition-delay: 0.2s; } .rv-d3 { transition-delay: 0.3s; }
+
+  @media (max-width: 768px) {
+    .hero { padding-top: 80px; }
+    .hero h1 { font-size: 32px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .f-grid { grid-template-columns: 1fr; }
+    .p-grid { grid-template-columns: 1fr; max-width: 400px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-mesh"></div>
+<div class="grid-bg"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-in">
+    <div class="logo">
+      <div class="logo-m">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M5 4h6a8 8 0 0 1 0 16H5V4z" stroke="#2dd4bf" stroke-width="2" fill="none"/>
+          <path d="M9 12l3 3 5-6" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="18" cy="5" r="1.5" fill="#2dd4bf" opacity="0.6"/>
+          <path d="M15 3l3 2" stroke="#2dd4bf" stroke-width="1" opacity="0.4"/>
+        </svg>
+      </div>
+      <div class="logo-n">Delegent</div>
+    </div>
+    <div class="nav-right">
+      <a href="/login" class="nav-login">Login</a>
+      <a href="/download" class="nav-btn">Download</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="pill"><span class="pill-dot"></span> Now available for Windows &amp; macOS</div>
+  <h1>Know exactly what your<br><span class="grad">virtual assistants</span> are doing</h1>
+  <p class="hero-p">Time tracking, random screenshots, activity monitoring, and productivity scoring. Built specifically for VA teams. Replace guesswork with data.</p>
+
+  <div class="cta-wrap" id="download">
+    <a href="/download" class="dl-cta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>
+      Download for Windows &amp; Mac
+    </a>
+  </div>
+  <p class="wl-note">Free during early access &middot; Windows 10/11 &amp; macOS</p>
+
+  <div class="stats rv">
+    <div class="st"><div class="st-val">30<span>/hr</span></div><div class="st-lbl">Screenshots</div></div>
+    <div class="st"><div class="st-val">0-100</div><div class="st-lbl">TrustScore</div></div>
+    <div class="st"><div class="st-val">&lt;1<span>%</span></div><div class="st-lbl">CPU Usage</div></div>
+    <div class="st"><div class="st-val">10<span>MB</span></div><div class="st-lbl">App Size</div></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="sec-hd rv">
+    <div class="sec-tag">Features</div>
+    <h2>Everything you need. Nothing you don't.</h2>
+    <p class="sub">Six tools that turn invisible work into visible results.</p>
+  </div>
+  <div class="f-grid">
+    <div class="fc rv" onmousemove="trackMouse(event,this)" onmouseleave="resetMouse(this)">
+      <div class="fc-top"></div>
+      <div class="fc-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M3 9h2M19 9h2"/><path d="M9 5V3h6v2"/></svg></div>
+      <h3>Random Screenshots</h3>
+      <p>Capture up to 30 screenshots per hour at random intervals. Your VAs never know when the next one fires. Everyone stays accountable.</p>
+    </div>
+    <div class="fc rv rv-d1" onmousemove="trackMouse(event,this)" onmouseleave="resetMouse(this)">
+      <div class="fc-top"></div>
+      <div class="fc-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+      <h3>Smart Alerts</h3>
+      <p>Get notified automatically when a VA is idle too long, visiting non-work sites, or showing suspicious activity patterns.</p>
+    </div>
+    <div class="fc rv rv-d2" onmousemove="trackMouse(event,this)" onmouseleave="resetMouse(this)">
+      <div class="fc-top"></div>
+      <div class="fc-icon"><svg viewBox="0 0 24 24"><path d="M12 2l3 6h6l-5 4 2 7-6-4-6 4 2-7-5-4h6l3-6z"/></svg></div>
+      <h3>TrustScore</h3>
+      <p>Our anti-manipulation engine detects mouse jigglers, auto-typers, and fake activity. Every session gets a trust rating from 0-100.</p>
+    </div>
+    <div class="fc rv" onmousemove="trackMouse(event,this)" onmouseleave="resetMouse(this)">
+      <div class="fc-top"></div>
+      <div class="fc-icon"><svg viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M6 16V10"/><path d="M10 16V6"/><path d="M14 16V8"/><path d="M18 16V4"/></svg></div>
+      <h3>Productivity Scoring</h3>
+      <p>Not just activity level. A real productivity score that factors in app usage, focus time, and behavioral trust signals.</p>
+    </div>
+    <div class="fc rv rv-d1" onmousemove="trackMouse(event,this)" onmouseleave="resetMouse(this)">
+      <div class="fc-top"></div>
+      <div class="fc-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H6l-2 4V4z"/><path d="M8 9h8M8 12h5"/></svg></div>
+      <h3>Coaching Log</h3>
+      <p>Leave feedback tied to specific sessions. Turn monitoring into mentoring. Help your VAs grow, not just watch them.</p>
+    </div>
+    <div class="fc rv rv-d2" onmousemove="trackMouse(event,this)" onmouseleave="resetMouse(this)">
+      <div class="fc-top"></div>
+      <div class="fc-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M7 4V2M17 4V2"/><path d="M7 14h4M7 17h2"/><path d="M14 14l2 2 3-4" stroke-width="2"/></svg></div>
+      <h3>Weekly Reports</h3>
+      <p>Every Monday, clients get an auto-generated email with hours, productivity, and TrustScore for each VA. No login required.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing">
+  <div class="sec-hd rv">
+    <div class="sec-tag">Pricing</div>
+    <h2>Simple pricing. No surprises.</h2>
+    <p class="sub">Start free for 14 days. No credit card required.</p>
+  </div>
+
+  <div class="tog rv">
+    <span class="tog-l on" id="mL">Monthly</span>
+    <div class="tog-t" id="togT" onclick="togBill()"><div class="tog-k"></div></div>
+    <span class="tog-l" id="aL">Annual</span>
+    <span class="save-p" id="saveP" style="display:none;">Save 17%</span>
+  </div>
+
+  <div class="p-grid">
+    <div class="pc rv">
+      <h3>Starter</h3>
+      <div class="pc-pr"><span class="pc-amt" id="sp">$8</span><span class="pc-per">/VA/month</span></div>
+      <div class="pc-an" id="sn">&nbsp;</div>
+      <ul>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Time tracking</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> 15 screenshots/hr</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Basic dashboard</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> 1 manager seat</li>
+      </ul>
+      <a href="/download" class="pc-btn pc-btn-out">Download</a>
+    </div>
+
+    <div class="pc pop rv rv-d1">
+      <h3>Pro</h3>
+      <div class="pc-pr"><span class="pc-amt" id="pp">$12</span><span class="pc-per">/VA/month</span></div>
+      <div class="pc-an" id="pn">&nbsp;</div>
+      <span class="pop-b">Most Popular</span>
+      <ul>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Everything in Starter</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> 30 screenshots/hr</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Activity &amp; app tracking</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> TrustScore</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Coaching log</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Smart alerts</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Weekly reports</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> 3 manager seats</li>
+      </ul>
+      <a href="/download" class="pc-btn pc-btn-fill">Download</a>
+    </div>
+
+    <div class="pc rv rv-d2">
+      <h3>Business</h3>
+      <div class="pc-pr"><span class="pc-amt" id="bp">$18</span><span class="pc-per">/VA/month</span></div>
+      <div class="pc-an" id="bn">&nbsp;</div>
+      <ul>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Everything in Pro</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> SSO / SAML</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> White-labeling</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> API access</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Unlimited managers</li>
+        <li><span class="ck-wrap"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span> Priority support</li>
+      </ul>
+      <a href="/download" class="pc-btn pc-btn-out">Download</a>
+    </div>
+  </div>
+</section>
+
+<!-- BOTTOM CTA -->
+<section class="bcta">
+  <div class="bcta-glow"></div>
+  <h2>Ready to stop guessing what your VAs are doing?</h2>
+  <p>Download Delegent and set up your team in minutes.</p>
+  <div class="cta-wrap">
+    <a href="/download" class="dl-cta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>
+      Download Delegent
+    </a>
+  </div>
+</section>
+
+<footer>&copy; 2026 Delegent by High Thrive LLC. All rights reserved.</footer>
+
+<script>
+let ann = false;
+function togBill() {
+  ann = !ann;
+  document.getElementById('togT').classList.toggle('on', ann);
+  document.getElementById('mL').classList.toggle('on', !ann);
+  document.getElementById('aL').classList.toggle('on', ann);
+  document.getElementById('saveP').style.display = ann ? 'inline-block' : 'none';
+  const d = (id, m, a) => { document.getElementById(id).textContent = ann ? a : m; };
+  d('sp','$8','$7'); d('pp','$12','$10'); d('bp','$18','$15');
+  document.getElementById('sn').innerHTML = ann ? '$80/VA billed annually' : '&nbsp;';
+  document.getElementById('pn').innerHTML = ann ? '$120/VA billed annually' : '&nbsp;';
+  document.getElementById('bn').innerHTML = ann ? '$180/VA billed annually' : '&nbsp;';
+}
+function trackMouse(e, el) {
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+  el.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+}
+function resetMouse(el) { el.style.setProperty('--mx','50%'); el.style.setProperty('--my','50%'); }
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('vis'); io.unobserve(e.target); }});
+}, { threshold: 0.12 });
+document.querySelectorAll('.rv').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>
