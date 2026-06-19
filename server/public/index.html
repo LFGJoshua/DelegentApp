@@ -481,13 +481,10 @@
     // ---- Reports ----
     const APP_COLORS = ['#3b6fd6','#d6453b','#e8a33b','#39a85a','#8b3bd6','#3bc0d6','#d63b9e','#7a8a3b','#b0563b','#5b6471','#c2c8d0']
     let repFrom = null, repTo = null
-    let repType = 'apps' // 'apps' | 'detailed'
+    let repType = 'apps' // 'apps' | 'detailed' (just highlights the link; both show donut + detailed table)
     function applyRepType(t) {
       repType = t
       document.querySelectorAll('.rep-types a[data-type]').forEach(a => a.classList.toggle('on', a.dataset.type === t))
-      $('repAppsView').style.display = t === 'apps' ? '' : 'none'
-      $('repTableView').style.display = t === 'apps' ? '' : 'none'
-      $('repDetailed').style.display = t === 'detailed' ? 'block' : 'none'
     }
     const fmtD = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(2)}`
     const apiD = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -520,7 +517,6 @@
     async function loadReport() {
       const id = $('repEmployee').value || agentId
       if (!id || !repFrom) return
-      if (repType === 'detailed') return loadDetailed(id)
       const data = await fetch(`/api/report/apps?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}&tz=${TZMIN}`).then(r=>r.json())
       $('repTotal').textContent = hm(data.totalWorked)
       $('repAct').textContent = data.activity + '%'
@@ -531,6 +527,10 @@
       const empName = ($('repEmployee').options[$('repEmployee').selectedIndex]||{}).text || ''
       $('repTableBody').innerHTML = `<div class="rrow"><span><b>${esc(empName)}</b></span><span>${hm(data.totalWorked)}</span><span>${data.activity}%</span></div>`
       window._repData = data
+      // Always show the detailed session table beneath the donut.
+      $('repTableView').style.display = 'none'
+      $('repDetailed').style.display = 'block'
+      await loadDetailed(id)
     }
 
     async function loadDetailed(id) {
