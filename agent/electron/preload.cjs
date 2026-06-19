@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('agent', {
   login: (email, password) => ipcRenderer.invoke('auth-login', { email, password }),
   register: (name, email, password) => ipcRenderer.invoke('auth-register', { name, email, password }),
   logout: () => ipcRenderer.invoke('auth-logout'),
+  fitWindow: (h) => ipcRenderer.invoke('fit-window', h),
   timeDaily: () => ipcRenderer.invoke('time-daily'),
   play: (note) => ipcRenderer.invoke('play', note),
   pause: () => ipcRenderer.invoke('pause'),

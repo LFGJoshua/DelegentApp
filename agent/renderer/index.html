@@ -6,139 +6,134 @@
   <title>Delegent</title>
   <style>
     :root {
-      /* Delegent brand palette: deep forest green + white + green accents */
-      --bg:#f5f8f6; --panel:#ffffff; --panel2:#eef3f0; --border:#e4ebe7;
-      --text:#0f2a20; --muted:#5f6f67; --accent:#15803d; --accent2:#16a34a;
-      --teal:#2bb673; --orange:#ff5b3a; --row:#eef3f0; --header:#0e3d2d;
+      --text:#e9f1ee; --muted:#7e958d; --faint:#5d726b;
+      --card:rgba(255,255,255,.045); --card2:rgba(255,255,255,.025); --border:rgba(255,255,255,.08);
+      --teal:#2bd4a7; --teal-d:#19b894; --amber:#f6b13a; --red:#ff5d5d; --green:#27c281;
+      --cyan:#57c4d6; --cyan-l:#74d6e6; --purple1:#7b6cf0; --purple2:#5a48d6;
     }
     * { box-sizing:border-box; }
     html,body { margin:0; height:100%; }
-    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); user-select:none; }
-    .scroll { height:100vh; overflow-y:auto; }
-
-    /* Header — deep green brand band */
-    .head { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; background:var(--header); color:#fff; }
-    .head .brandrow { display:flex; align-items:center; gap:10px; }
-    .head .dtile { width:30px; height:30px; border-radius:8px; background:var(--accent); color:#fff; font-weight:800; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .org { font-size:12px; color:#9ad9b4; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
-    .name { font-size:22px; font-weight:800; text-transform:lowercase; margin-top:2px; color:#fff; }
-    .menu { font-size:24px; color:#cfe3d7; cursor:pointer; line-height:1; }
-
-    /* Top: circle + chart */
-    .top { display:flex; gap:16px; padding:18px 22px; align-items:center; }
-    .circle {
-      width:150px; height:150px; border-radius:50%; flex-shrink:0; color:#fff;
-      background:radial-gradient(circle at 35% 30%, var(--accent2), var(--accent));
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      box-shadow:0 10px 30px rgba(21,128,61,.35);
+    body {
+      font-family:'Segoe UI',system-ui,-apple-system,sans-serif; color:var(--text); user-select:none;
+      background:radial-gradient(130% 90% at 50% 18%, #173a33 0%, #0b1a16 48%, #060f0d 100%);
     }
-    .circle .ic { font-size:16px; opacity:.9; margin-bottom:2px; }
-    .circle .big { font-size:42px; font-weight:800; letter-spacing:1px; line-height:1; }
-    .circle .lbl { font-size:13px; opacity:.85; margin-top:4px; }
+    .scroll { max-height:100vh; overflow-y:auto; padding-bottom:16px; }
+    .scroll::-webkit-scrollbar { width:8px; } .scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,.08); border-radius:4px; }
+    button { font-family:inherit; }
 
-    .chart { flex:1; min-width:0; }
-    .chart .bars { position:relative; height:150px; display:flex; align-items:flex-end; gap:10px; padding-left:4px; }
-    .chart .grid { position:absolute; inset:0; pointer-events:none; }
-    .chart .gline { position:absolute; left:0; right:34px; border-top:1px solid var(--border); }
-    .chart .glabel { position:absolute; right:0; transform:translateY(-50%); font-size:11px; color:var(--muted); }
-    .chart .col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; margin-right:34px; }
-    .chart .col:not(:last-child) { margin-right:0; }
-    .bars-wrap { margin-right:34px; }
-    .bar { width:14px; border-radius:7px; background:var(--teal); transition:height .3s; min-height:3px; }
-    .bar.today { background:var(--accent); }
-    .daylabels { display:flex; gap:10px; padding-left:4px; margin-bottom:6px; }
-    .daylabels span { flex:1; text-align:center; font-size:12px; color:var(--muted); }
-    .daylabels span.today { color:var(--text); background:var(--panel2); border-radius:5px; padding:1px 0; }
+    /* Header (logo + name + status + actions) */
+    .head { display:flex; align-items:center; justify-content:space-between; padding:11px 16px 5px; gap:10px; }
+    .hleft { display:flex; align-items:center; gap:10px; min-width:0; }
+    .logo { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+    .logo .word { font-size:17px; font-weight:800; color:#dfeee8; } .logo .word b { color:var(--teal); }
+    .namechip { display:flex; align-items:center; gap:7px; padding:5px 10px; background:var(--card); border:1px solid var(--border); border-radius:999px; cursor:pointer; min-width:0; }
+    .namechip .udot { width:8px; height:8px; border-radius:50%; background:var(--purple1); box-shadow:0 0 8px var(--purple1); flex-shrink:0; }
+    .namechip .uname { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:84px; }
+    .namechip .role { font-size:9px; font-weight:700; letter-spacing:.5px; color:var(--faint); text-transform:uppercase; }
+    .namechip .caret { color:var(--faint); font-size:11px; }
+    .hactions { display:flex; align-items:center; gap:9px; flex-shrink:0; }
+    .pill { display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600; padding:6px 11px; border-radius:999px; background:var(--card); border:1px solid var(--border); color:var(--muted); }
+    .pill .dot { width:8px; height:8px; border-radius:50%; background:var(--faint); }
+    .pill.ok { color:#7ee0bd; } .pill.ok .dot { background:var(--green); box-shadow:0 0 8px var(--green); }
+    .pill.bad { color:#ffb0b0; } .pill.bad .dot { background:var(--red); box-shadow:0 0 8px var(--red); }
+    .gear { width:30px; height:30px; border-radius:9px; background:var(--card); border:1px solid var(--border); color:var(--muted); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .gear:hover { color:var(--text); border-color:rgba(255,255,255,.18); }
+    .menu { position:absolute; right:20px; top:56px; background:#0e201c; border:1px solid var(--border); border-radius:12px; box-shadow:0 14px 40px rgba(0,0,0,.5); padding:6px; display:none; z-index:20; min-width:170px; }
+    .menu.open { display:block; } .menu div { padding:10px 14px; border-radius:8px; font-size:14px; color:var(--text); cursor:pointer; } .menu div:hover { background:rgba(255,255,255,.06); }
 
-    /* Note bar */
-    .notebar { display:flex; align-items:center; gap:14px; margin:4px 22px 22px; background:var(--panel); border:1px solid var(--border); border-radius:36px; padding:8px 8px 8px 22px; box-shadow:0 1px 3px rgba(14,61,45,.06); }
-    .notebar input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:15px; }
-    .notebar input::placeholder { color:var(--muted); }
-    .toggle { width:66px; height:66px; border-radius:50%; border:none; cursor:pointer; flex-shrink:0;
-      display:flex; align-items:center; justify-content:center; transition:.15s; }
-    .toggle.start { background:var(--accent); box-shadow:0 6px 20px rgba(21,128,61,.4); }
-    .toggle.stop  { background:var(--orange); box-shadow:0 6px 20px rgba(255,91,58,.45); }
-    .toggle:hover { transform:scale(1.05); }
-    .toggle .play { width:0; height:0; border-left:20px solid #fff; border-top:12px solid transparent; border-bottom:12px solid transparent; margin-left:4px; }
-    .toggle .square { width:20px; height:20px; background:#fff; border-radius:4px; }
+    /* Top row: circle + chart */
+    .toprow { display:flex; align-items:center; gap:14px; padding:8px 16px 0; }
+    .circle { width:92px; height:92px; border-radius:50%; flex-shrink:0; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:radial-gradient(circle at 35% 30%, var(--purple1), var(--purple2)); box-shadow:0 8px 24px rgba(90,72,214,.38); }
+    .circle .ic { font-size:12px; opacity:.85; margin-bottom:1px; }
+    .circle .big { font-size:23px; font-weight:800; line-height:1; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
+    .circle .lbl { font-size:11px; opacity:.85; margin-top:4px; }
+    .chartbox { flex:1; min-width:0; }
+    .bars { position:relative; height:84px; display:flex; align-items:flex-end; gap:9px; }
+    .grid2 { position:absolute; inset:0; pointer-events:none; }
+    .gline { position:absolute; left:0; right:22px; border-top:1px solid rgba(255,255,255,.07); }
+    .glabel { position:absolute; right:0; transform:translateY(-50%); font-size:9px; color:var(--faint); }
+    .col2 { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; margin-right:22px; padding-top:13px; border-radius:7px; }
+    .col2:last-child { margin-right:0; }
+    .col2.today { background:rgba(255,255,255,.05); }
+    .col2 .daynum { font-size:9px; color:var(--faint); margin-bottom:4px; }
+    .col2.today .daynum { color:#cfe9ef; font-weight:700; }
+    .bar { width:11px; border-radius:6px; background:var(--cyan); min-height:3px; }
+    .bar.today { background:var(--cyan-l); }
 
-    .err { color:var(--orange); font-size:12px; text-align:center; min-height:14px; margin:-12px 22px 8px; }
+    /* Note bar with round toggle */
+    .notebar { display:flex; align-items:center; gap:8px; margin:12px 16px 0; background:var(--card); border:1px solid var(--border); border-radius:26px; padding:5px 5px 5px 16px; }
+    .note { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:13px; }
+    .note::placeholder { color:var(--faint); }
+    .toggle { width:40px; height:40px; border-radius:50%; border:none; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:.15s; }
+    .toggle:hover { transform:scale(1.06); }
+    .toggle.play { background:linear-gradient(135deg, var(--teal), var(--teal-d)); box-shadow:0 5px 16px rgba(43,212,167,.4); }
+    .toggle.stop { background:linear-gradient(135deg, #ff7a59, var(--red)); box-shadow:0 5px 16px rgba(255,93,93,.4); }
+    .tIcon.ic-play { width:0; height:0; border-left:13px solid #fff; border-top:8px solid transparent; border-bottom:8px solid transparent; margin-left:3px; }
+    .tIcon.ic-stop { width:13px; height:13px; border-radius:3px; background:#fff; }
+    .err { color:var(--red); font-size:11px; text-align:center; min-height:13px; margin:7px 16px 0; }
 
-    /* History list */
-    .list { padding:0 22px 30px; }
-    .day { padding:16px 0 6px; }
-    .day .dhead { display:flex; justify-content:space-between; align-items:baseline; }
-    .day .dtitle { font-size:17px; font-weight:800; }
-    .day .dtotal { font-size:17px; font-weight:800; }
-    .day.today-day .dhead { color:var(--text); }
-    .note-row { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; margin-top:8px; border-radius:8px; }
-    .note-row.first { background:var(--row); border-left:3px solid var(--accent); }
-    .note-row .nlabel { font-size:14px; color:var(--text); }
-    .note-row .ntime { font-size:13px; color:var(--muted); }
-    .empty { color:var(--muted); text-align:center; padding:30px 0; font-size:13px; }
+    /* Expanded extras */
+    .more { display:none; padding:8px 16px 0; }
+    #appScroll.expanded .more { display:block; }
+    .panel { background:var(--card); border:1px solid var(--border); border-radius:13px; padding:12px 14px; margin-bottom:10px; }
+    .panel .lab { font-size:11px; font-weight:700; letter-spacing:.6px; color:var(--faint); text-transform:uppercase; }
+    .stats { display:flex; align-items:center; }
+    .stat { flex:1; display:flex; align-items:center; gap:9px; padding:0 8px; } .stat + .stat { border-left:1px solid var(--border); }
+    .stat .tile { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; }
+    .stat .tile.t-act { background:rgba(43,212,167,.14); } .stat .tile.t-cap { background:rgba(111,140,230,.16); } .stat .tile.t-shot{ background:rgba(246,177,58,.14); }
+    .stat .v { font-size:16px; font-weight:800; line-height:1.1; } .stat .l { font-size:9px; font-weight:700; letter-spacing:.5px; color:var(--faint); text-transform:uppercase; }
+    .trust .row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+    .trust .val { font-size:24px; font-weight:800; }
+    .trust .bar2 { height:7px; border-radius:5px; background:rgba(255,255,255,.07); margin-top:9px; overflow:hidden; }
+    .trust .bar2 > span { display:block; height:100%; border-radius:5px; transition:width .3s; }
+    .trust .flags { margin-top:9px; font-size:12px; color:#ffb0a8; } .trust .flags div { margin-top:4px; } .trust .ok { margin-top:8px; font-size:12px; color:var(--muted); }
+    .histScroll { max-height:150px; overflow-y:auto; margin-top:6px; padding-right:6px; }
+    .histScroll::-webkit-scrollbar { width:7px; } .histScroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:4px; }
+    .day { padding:9px 0 3px; border-top:1px solid var(--border); } .day:first-child { border-top:none; }
+    .day .dhead { display:flex; justify-content:space-between; font-size:13px; font-weight:700; }
+    .note-row { display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-top:5px; gap:12px; }
+    .note-row .nl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .empty { color:var(--faint); text-align:center; padding:18px 0; font-size:13px; }
 
-    /* Productivity light */
-    .prodbar { display:flex; align-items:center; justify-content:center; gap:10px; margin:2px 22px 14px;
-      background:var(--panel); border:1px solid var(--border); border-radius:30px; padding:10px 18px; }
-    .pdot { width:16px; height:16px; border-radius:50%; background:var(--muted); box-shadow:0 0 0 0 transparent; }
-    .pdot.green { background:#28c840; box-shadow:0 0 12px 1px rgba(40,200,64,.7); }
-    .pdot.amber { background:#f5a623; box-shadow:0 0 12px 1px rgba(245,166,35,.6); }
-    .pdot.red   { background:#ff4d4d; box-shadow:0 0 12px 1px rgba(255,77,77,.6); }
-    .ptxt { font-size:14px; font-weight:600; }
-    .ptxt small { color:var(--muted); font-weight:400; }
+    .version { display:none; text-align:center; color:var(--faint); font-size:12px; margin:14px 0 4px; }
+    #appScroll.expanded .version { display:block; }
 
-    /* TrustScore */
-    .trust { margin:0 22px 14px; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px 18px; }
-    .trust .row { display:flex; align-items:center; justify-content:space-between; }
-    .trust .lab { font-size:13px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
-    .trust .val { font-size:30px; font-weight:800; }
-    .trust .val.green { color:#28a745; } .trust .val.amber { color:#e0a800; } .trust .val.red { color:#dc3545; }
-    .trust .bar { height:8px; border-radius:5px; background:var(--panel2); margin-top:10px; overflow:hidden; }
-    .trust .bar > span { display:block; height:100%; border-radius:5px; transition:width .3s; }
-    .trust .flags { margin-top:10px; font-size:12px; color:#b23; }
-    .trust .flags div { display:flex; gap:6px; align-items:flex-start; margin-top:4px; }
-    .trust .ok { font-size:12px; color:var(--muted); margin-top:8px; }
-
-    /* Login screen */
-    .login { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px; z-index:100; }
-    .login .brand { text-align:center; margin-bottom:22px; }
-    .login .brand .tile { width:54px; height:54px; border-radius:14px; background:var(--accent); color:#fff; font-weight:800; font-size:34px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:10px; box-shadow:0 8px 22px rgba(21,128,61,.35); }
-    .login .brand .org { font-size:13px; color:var(--accent); font-weight:700; letter-spacing:1px; text-transform:uppercase; }
-    .login .brand .ttl { font-size:30px; font-weight:800; color:var(--header); margin-top:4px; }
-    .login .panel { width:100%; max-width:330px; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:0 8px 28px rgba(14,61,45,.10); }
+    /* Login */
+    .login { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px 22px; }
+    .login .brand { text-align:center; margin-bottom:20px; }
+    .login .brand .mark { width:54px; height:54px; margin:0 auto 12px; }
+    .login .brand .ttl { font-size:26px; font-weight:800; color:#dfeee8; } .login .brand .ttl b { color:var(--teal); }
+    .login .panel2 { width:100%; max-width:340px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px; }
     .login .ltabs { display:flex; margin:-4px -4px 14px; }
     .login .ltabs button { flex:1; padding:11px 0; background:transparent; border:none; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
-    .login .ltabs button.on { color:var(--accent); border-bottom-color:var(--accent); }
-    .login label { display:block; font-size:12px; font-weight:600; margin:12px 0 4px; }
-    .login input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; outline:none; background:#fff; }
-    .login input:focus { border-color:var(--accent); }
-    .login .lbtn { width:100%; margin-top:16px; background:var(--accent); color:#fff; border:none; padding:12px; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; }
-    .login .lbtn:hover { background:var(--accent2); }
-    .login .lbtn:disabled { opacity:.6; cursor:default; }
-    .login .lmsg { font-size:12px; margin-top:12px; min-height:15px; color:var(--orange); }
+    .login .ltabs button.on { color:var(--teal); border-bottom-color:var(--teal); }
+    .login label { display:block; font-size:12px; font-weight:600; margin:12px 0 4px; color:#c7d6d0; }
+    .login input { width:100%; padding:11px 13px; border:1px solid var(--border); border-radius:9px; font-size:14px; outline:none; background:var(--card2); color:var(--text); }
+    .login input:focus { border-color:rgba(43,212,167,.4); }
+    .login .lbtn { width:100%; margin-top:16px; background:var(--teal-d); color:#06211c; border:none; padding:12px; border-radius:9px; font-size:14px; font-weight:800; cursor:pointer; }
+    .login .lbtn:hover { background:var(--teal); } .login .lbtn:disabled { opacity:.6; cursor:default; }
+    .login .lmsg { font-size:12px; margin-top:12px; min-height:15px; color:var(--red); }
     .login .lhint { font-size:11px; color:var(--muted); margin-top:10px; line-height:1.5; }
-    .login .lserver { font-size:11px; color:var(--muted); margin-top:18px; text-align:center; }
+    .login .lserver { font-size:11px; color:var(--faint); margin-top:18px; text-align:center; }
     .login .lserver input { display:inline-block; width:auto; padding:4px 8px; font-size:11px; }
     #lNameWrap { display:none; }
   </style>
 </head>
 <body>
+  <!-- ===== Login ===== -->
   <div class="login" id="loginView">
     <div class="brand">
-      <div class="tile">D</div>
-      <div class="org">Delegent</div>
-      <div class="ttl">Sign in to track</div>
+      <svg class="mark" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#2bd4a7"/><path d="M6 12.5l3.5 3.5L18 7.5" stroke="#06211c" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="ttl"><b>D</b>elegent</div>
     </div>
-    <div class="panel">
+    <div class="panel2">
       <div class="ltabs">
         <button id="lTabLogin" class="on">Sign in</button>
         <button id="lTabRegister">Create account</button>
       </div>
       <form id="lForm">
-        <div id="lNameWrap">
-          <label for="lName">Name</label>
-          <input id="lName" type="text" placeholder="Your name" />
-        </div>
+        <div id="lNameWrap"><label for="lName">Name</label><input id="lName" type="text" placeholder="Your name" /></div>
         <label for="lEmail">Email</label>
         <input id="lEmail" type="email" placeholder="you@company.com" required />
         <label for="lPassword">Password</label>
@@ -151,57 +146,63 @@
     </div>
   </div>
 
+  <!-- ===== App ===== -->
   <div class="scroll" id="appScroll">
     <div class="head">
-      <div class="brandrow">
-        <span class="dtile">D</span>
-        <div>
-          <div class="org">Delegent <span id="roleTag" style="color:#9ad9b4;font-size:11px;"></span></div>
-          <div class="name" id="name">device</div>
+      <div class="hleft">
+        <div class="logo">
+          <svg width="25" height="25" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#2bd4a7"/><path d="M6 12.5l3.5 3.5L18 7.5" stroke="#06211c" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="word"><b>D</b>elegent</span>
+        </div>
+        <div class="namechip" id="nameBar">
+          <span class="udot"></span><span class="uname" id="name">device</span>
+          <span class="role" id="roleTag"></span><span class="caret">▾</span>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span id="logoutLink" title="Sign out" style="font-size:12px;color:#9ad9b4;cursor:pointer;">log out</span>
-        <div class="menu" title="Open dashboard" id="menuBtn">☰</div>
+      <div class="hactions">
+        <span class="pill" id="syncPill"><span class="dot"></span><span id="syncTxt">—</span></span>
+        <button class="gear" id="expandBtn" title="Expand">⤢</button>
+        <button class="gear" id="gearBtn" title="Menu">⚙</button>
       </div>
     </div>
+    <div class="menu" id="menu"><div id="mDash">Open dashboard</div><div id="mLogout">Log out</div></div>
 
-    <div class="top">
+    <div class="toprow">
       <div class="circle">
         <div class="ic">🕐</div>
-        <div class="big" id="todayBig">0:00</div>
+        <div class="big" id="circleBig">0:00</div>
         <div class="lbl">today</div>
       </div>
-      <div class="chart">
-        <div class="daylabels" id="dayLabels"></div>
-        <div class="bars" id="bars"><div class="grid" id="grid"></div></div>
+      <div class="chartbox">
+        <div class="bars" id="bars"><div class="grid2" id="grid"></div></div>
       </div>
-    </div>
-
-    <div class="prodbar">
-      <span id="prodDot" class="pdot"></span>
-      <span class="ptxt" id="prodTxt">Productivity <small>— paused</small></span>
-    </div>
-
-    <div class="trust">
-      <div class="row">
-        <span class="lab" id="trustLab">TrustScore</span>
-        <span class="val" id="trustVal">100</span>
-      </div>
-      <div class="bar"><span id="trustBar" style="width:100%;background:#28a745"></span></div>
-      <div class="flags" id="trustFlags"></div>
-      <div class="ok" id="trustOk">No suspicious activity detected.</div>
     </div>
 
     <div class="notebar">
-      <input id="note" placeholder="What are you working on?" />
-      <button class="toggle start" id="toggle"><span class="play"></span></button>
+      <input id="note" class="note" placeholder="What are you working on?" />
+      <button class="toggle play" id="toggleBtn"><span class="tIcon ic-play"></span></button>
     </div>
     <div class="err" id="err"></div>
 
-    <div class="list" id="list">
-      <div class="empty">Press start to begin tracking.</div>
+    <div class="more" id="more">
+      <div class="panel stats">
+        <div class="stat"><div class="tile t-act">📈</div><div><div class="v" id="actVal">0%</div><div class="l">Activity</div></div></div>
+        <div class="stat"><div class="tile t-cap">🖼️</div><div><div class="v" id="capVal">0</div><div class="l">Captures</div></div></div>
+        <div class="stat"><div class="tile t-shot">🕐</div><div><div class="v" id="shotVal">—</div><div class="l">Last shot</div></div></div>
+      </div>
+      <div class="panel trust">
+        <div class="row"><span class="lab" id="trustLab">TrustScore</span><span class="val" id="trustVal">100</span></div>
+        <div class="bar2"><span id="trustBar" style="width:100%;background:#27c281"></span></div>
+        <div class="flags" id="trustFlags"></div>
+        <div class="ok" id="trustOk">No suspicious activity detected.</div>
+      </div>
+      <div class="panel recent">
+        <span class="lab">Recent work</span>
+        <div class="histScroll" id="list"><div class="empty">No tracked time yet.</div></div>
+      </div>
     </div>
+
+    <div class="version" id="version">Delegent</div>
   </div>
 
   <script>
@@ -209,65 +210,56 @@
     let cfg = null, working = false
     let todayBase = 0, fetchAt = Date.now()
 
+    function fitWindow() {
+      setTimeout(() => {
+        const loginVisible = $('loginView').style.display !== 'none'
+        const el = loginVisible ? $('loginView') : $('appScroll')
+        if (window.agent.fitWindow) window.agent.fitWindow(el.scrollHeight)
+      }, 45)
+    }
+
     const pad = (n) => String(n).padStart(2, '0')
     const colon = (sec) => `${Math.floor(sec/3600)}:${pad(Math.floor(sec%3600/60))}`
-    const hm = (sec) => {
-      const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60)
-      return h ? `${h}h ${m}m` : `${m}m`
-    }
-    const dayTitle = (ts, isToday) => isToday ? 'Today'
-      : new Date(ts).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })
+    const hm = (sec) => { const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60); return h?`${h}h ${m}m`:`${m}m` }
+    const clock = (ts) => new Date(ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', hour12:false })
+    const dayTitle = (ts, isToday) => isToday ? 'Today' : new Date(ts).toLocaleDateString(undefined,{ weekday:'short', month:'short', day:'numeric' })
+    const escapeHtml = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
-    // Smoothly tick the big "today" number between server polls.
+    // Live-tick the circle's "today" total.
     setInterval(() => {
       const live = todayBase + (working ? (Date.now() - fetchAt) / 1000 : 0)
-      $('todayBig').textContent = colon(live)
+      $('circleBig').textContent = colon(live)
     }, 250)
 
     function renderChart(days) {
       const maxSec = Math.max(...days.map(d => d.seconds), 1)
-      let maxH = Math.max(9, Math.ceil(maxSec/3600/3)*3) // multiple of 3, min 9h
-      const maxScale = maxH * 3600
-
-      // gridlines + labels at 0, 1/3, 2/3, full
+      const maxH = Math.max(9, Math.ceil(maxSec/3600/3)*3), maxScale = maxH * 3600
       const grid = $('grid'); grid.innerHTML = ''
       for (let i = 0; i <= 3; i++) {
         const frac = i/3
-        const line = document.createElement('div'); line.className = 'gline'; line.style.bottom = (frac*100)+'%'
-        const lab = document.createElement('div'); lab.className = 'glabel'; lab.style.bottom = (frac*100)+'%'
-        lab.textContent = Math.round(maxH*frac) + 'h'
+        const line = document.createElement('div'); line.className='gline'; line.style.bottom=(frac*100)+'%'
+        const lab = document.createElement('div'); lab.className='glabel'; lab.style.bottom=(frac*100)+'%'; lab.textContent=Math.round(maxH*frac)+'h'
         grid.appendChild(line); grid.appendChild(lab)
       }
-
-      // bars
       const bars = $('bars')
-      ;[...bars.querySelectorAll('.col')].forEach(e => e.remove())
-      $('dayLabels').innerHTML = ''
+      ;[...bars.querySelectorAll('.col2')].forEach(e=>e.remove())
       days.forEach((d, i) => {
         const isToday = i === days.length - 1
-        const col = document.createElement('div'); col.className = 'col'
-        const bar = document.createElement('div'); bar.className = 'bar' + (isToday ? ' today' : '')
-        bar.style.height = Math.max(3, (d.seconds / maxScale) * 100) + '%'
+        const col = document.createElement('div'); col.className='col2'+(isToday?' today':'')
+        const num = document.createElement('div'); num.className='daynum'; num.textContent=d.label; col.appendChild(num)
+        const bar = document.createElement('div'); bar.className='bar'+(isToday?' today':''); bar.style.height=Math.max(3,(d.seconds/maxScale)*88)+'%'
         col.appendChild(bar); bars.appendChild(col)
-        const lab = document.createElement('span'); lab.textContent = d.label
-        if (isToday) lab.className = 'today'
-        $('dayLabels').appendChild(lab)
       })
     }
 
     function renderList(entries) {
       if (!entries.length) { $('list').innerHTML = '<div class="empty">No tracked time yet.</div>'; return }
       $('list').innerHTML = entries.map(e => `
-        <div class="day ${e.isToday ? 'today-day' : ''}">
-          <div class="dhead"><span class="dtitle">${dayTitle(e.date, e.isToday)}</span><span class="dtotal">${hm(e.seconds)}</span></div>
-          ${e.notes.map((n, i) => `
-            <div class="note-row ${i === 0 ? 'first' : ''}">
-              <span class="nlabel">${escapeHtml(n.note)}</span>
-              <span class="ntime">${hm(n.seconds)}</span>
-            </div>`).join('')}
+        <div class="day">
+          <div class="dhead"><span>${dayTitle(e.date, e.isToday)}</span><span>${hm(e.seconds)}</span></div>
+          ${e.notes.map(n => `<div class="note-row"><span class="nl">${escapeHtml(n.note)}</span><span>${hm(n.seconds)}</span></div>`).join('')}
         </div>`).join('')
     }
-    const escapeHtml = (s) => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
     async function poll() {
       if (!cfg) return
@@ -275,72 +267,84 @@
         const data = await window.agent.timeDaily()
         if (!data) return
         todayBase = data.today; fetchAt = Date.now()
-        renderChart(data.days)
-        renderList(data.entries)
+        renderChart(data.days); renderList(data.entries)
         $('err').textContent = ''
-      } catch (e) {
-        $('err').textContent = '⚠ cannot reach server at ' + (cfg ? cfg.serverUrl : '')
-      }
+        fitWindow()
+      } catch (e) { $('err').textContent = '⚠ cannot reach server' }
     }
 
     function onStatus(s) {
       if (!s) return
       cfg = s.config
+      if ($('version')) $('version').textContent = 'Delegent' + (s.appVersion ? ' v' + s.appVersion : '')
 
-      // Auth gate: show the login screen until a user is signed in.
       if (!s.authed) {
         $('loginView').style.display = 'flex'
         $('appScroll').style.display = 'none'
         if (cfg && document.activeElement.id !== 'lServer') $('lServer').value = cfg.serverUrl || ''
+        fitWindow()
         return
       }
       $('loginView').style.display = 'none'
       $('appScroll').style.display = 'block'
-      $('roleTag').textContent = s.user ? '· ' + (s.user.role === 'admin' ? 'Admin' : 'Employee') : ''
 
       working = s.working
       $('name').textContent = cfg.agentName || 'device'
+      $('roleTag').textContent = s.user ? (s.user.role === 'admin' ? 'Admin' : 'Employee') : ''
       if (document.activeElement.id !== 'note') $('note').value = s.currentNote || ''
-      $('toggle').className = 'toggle ' + (working ? 'stop' : 'start')
-      $('toggle').innerHTML = working ? '<span class="square"></span>' : '<span class="play"></span>'
-      $('err').textContent = s.lastError ? '⚠ ' + s.lastError : $('err').textContent
 
-      // Productivity light: green when input activity >= 50%, amber 25-49%, red below.
-      const pct = s.activityPct || 0
-      if (!working) {
-        $('prodDot').className = 'pdot'
-        $('prodTxt').innerHTML = 'Productivity <small>— paused</small>'
-      } else {
-        const lvl = pct >= 50 ? 'green' : pct >= 25 ? 'amber' : 'red'
-        const label = pct >= 50 ? 'Productive' : pct >= 25 ? 'Moderate' : 'Low activity'
-        $('prodDot').className = 'pdot ' + lvl
-        $('prodTxt').innerHTML = `${label} <small>${pct}% active</small>`
-      }
+      const tb = $('toggleBtn')
+      tb.className = 'toggle ' + (working ? 'stop' : 'play')
+      tb.firstElementChild.className = 'tIcon ' + (working ? 'ic-stop' : 'ic-play')
 
-      // TrustScore bands: 85+ Trusted, 70+ Normal, 50+ Suspicious, 25+ Flagged, <25 Manipulating
+      const pill = $('syncPill')
+      if (s.lastError) { pill.className = 'pill bad'; $('syncTxt').textContent = 'Offline' }
+      else if (working) { pill.className = 'pill ok'; $('syncTxt').textContent = 'Synced' }
+      else { pill.className = 'pill'; $('syncTxt').textContent = 'Idle' }
+      $('err').textContent = s.lastError ? '⚠ ' + s.lastError : ''
+
+      $('actVal').textContent = (s.activityPct || 0) + '%'
+      $('capVal').textContent = s.shotCount || 0
+      $('shotVal').textContent = s.lastCaptureAt ? clock(s.lastCaptureAt) : '—'
+
       const ts = s.trustScore == null ? 100 : s.trustScore
-      const tcolor = ts >= 70 ? '#28a745' : ts >= 50 ? '#e0a800' : ts >= 25 ? '#fd7e14' : '#dc3545'
+      const tcolor = ts >= 70 ? '#27c281' : ts >= 50 ? '#f6b13a' : ts >= 25 ? '#ff8a3a' : '#ff5d5d'
       const tlabel = s.trustLabel || (ts >= 85 ? 'Trusted' : ts >= 70 ? 'Normal' : ts >= 50 ? 'Suspicious' : ts >= 25 ? 'Flagged' : 'Manipulating')
-      $('trustVal').textContent = ts
-      $('trustVal').style.color = tcolor
+      $('trustVal').textContent = ts; $('trustVal').style.color = tcolor
       $('trustLab').textContent = 'TrustScore · ' + tlabel
-      $('trustBar').style.width = ts + '%'
-      $('trustBar').style.background = tcolor
+      $('trustBar').style.width = ts + '%'; $('trustBar').style.background = tcolor
       const flags = s.trustFlags || []
-      $('trustFlags').innerHTML = flags.map(f => `<div>⚠ ${f}</div>`).join('')
+      $('trustFlags').innerHTML = flags.map(f => `<div>⚠ ${escapeHtml(f)}</div>`).join('')
       $('trustOk').style.display = flags.length ? 'none' : 'block'
+
+      fitWindow()
     }
 
-    $('toggle').onclick = async () => {
+    // Single toggle (play / stop) in the note bar.
+    $('toggleBtn').onclick = async () => {
       if (working) await window.agent.pause()
       else await window.agent.play($('note').value.trim())
       const s = await window.agent.getState(); onStatus(s); poll()
     }
-    // Update the note live while running.
     $('note').addEventListener('change', () => { if (working) window.agent.setNote($('note').value.trim()) })
-    $('menuBtn').onclick = () => { /* opens dashboard in browser */ if (cfg) window.open(cfg.serverUrl, '_blank') }
 
-    // ---- Login screen ----
+    // Menu + expand
+    const toggleMenu = () => $('menu').classList.toggle('open')
+    $('gearBtn').onclick = (e) => { e.stopPropagation(); toggleMenu() }
+    $('nameBar').onclick = (e) => { e.stopPropagation(); toggleMenu() }
+    document.addEventListener('click', () => $('menu').classList.remove('open'))
+    $('mDash').onclick = () => { if (cfg) window.open(cfg.serverUrl, '_blank') }
+    $('mLogout').onclick = async () => { await window.agent.logout(); const s = await window.agent.getState(); onStatus(s) }
+    let expanded = false
+    $('expandBtn').onclick = () => {
+      expanded = !expanded
+      $('appScroll').classList.toggle('expanded', expanded)
+      $('expandBtn').textContent = expanded ? '⤡' : '⤢'
+      $('expandBtn').title = expanded ? 'Collapse' : 'Expand'
+      fitWindow()
+    }
+
+    // ===== Login =====
     let authMode = 'login'
     function setAuthMode(m) {
       authMode = m
@@ -348,10 +352,9 @@
       $('lTabRegister').classList.toggle('on', m === 'register')
       $('lSubmit').textContent = m === 'login' ? 'Sign in' : 'Create account'
       $('lNameWrap').style.display = m === 'register' ? 'block' : 'none'
-      $('lHint').textContent = m === 'register'
-        ? 'The first account created becomes the admin/manager. Everyone after is an employee.'
-        : ''
+      $('lHint').textContent = m === 'register' ? 'The first account created becomes the admin/manager. Everyone after is an employee.' : ''
       $('lMsg').textContent = ''
+      fitWindow()
     }
     $('lTabLogin').onclick = () => setAuthMode('login')
     $('lTabRegister').onclick = () => setAuthMode('register')
@@ -360,30 +363,20 @@
       e.preventDefault()
       $('lSubmit').disabled = true
       $('lMsg').style.color = 'var(--muted)'; $('lMsg').textContent = 'Please wait…'
-      // Save the server URL first so login hits the right backend.
       const server = $('lServer').value.trim()
       if (server && (!cfg || server !== cfg.serverUrl)) cfg = await window.agent.setConfig({ serverUrl: server })
       const email = $('lEmail').value.trim(), password = $('lPassword').value, name = $('lName').value.trim()
-      const r = authMode === 'login'
-        ? await window.agent.login(email, password)
-        : await window.agent.register(name, email, password)
+      const r = authMode === 'login' ? await window.agent.login(email, password) : await window.agent.register(name, email, password)
       if (r && r.ok) {
-        $('lMsg').style.color = 'var(--accent)'; $('lMsg').textContent = 'Signed in!'
+        $('lMsg').style.color = 'var(--teal)'; $('lMsg').textContent = 'Signed in!'
         const s = await window.agent.getState(); onStatus(s); poll()
-      } else {
-        $('lMsg').style.color = 'var(--orange)'; $('lMsg').textContent = (r && r.error) || 'Sign-in failed'
-      }
+      } else { $('lMsg').style.color = 'var(--red)'; $('lMsg').textContent = (r && r.error) || 'Sign-in failed' }
       $('lSubmit').disabled = false
-    }
-
-    $('logoutLink').onclick = async () => {
-      await window.agent.logout()
-      const s = await window.agent.getState(); onStatus(s)
     }
 
     window.agent.onStatus(onStatus)
     window.agent.getState().then((s) => { onStatus(s); poll() })
-    setInterval(poll, 2500)
+    setInterval(poll, 30000)
   </script>
 </body>
 </html>

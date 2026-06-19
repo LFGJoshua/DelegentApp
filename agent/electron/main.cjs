@@ -243,7 +243,7 @@ async function checkAuth() {
 }
 
 function pushStatus() {
-  const payload = { ...state, sessionMs: sessionMs(), config }
+  const payload = { ...state, sessionMs: sessionMs(), config, appVersion: app.getVersion() }
   if (win && !win.isDestroyed()) win.webContents.send('status', payload)
   updateTray()
 }
@@ -387,10 +387,18 @@ function createTray() {
 }
 
 // ---- IPC ----
-ipcMain.handle('get-state', () => ({ ...state, sessionMs: sessionMs(), config }))
+ipcMain.handle('get-state', () => ({ ...state, sessionMs: sessionMs(), config, appVersion: app.getVersion() }))
 ipcMain.handle('auth-login', (_e, { email, password } = {}) => doLogin(email, password))
 ipcMain.handle('auth-register', (_e, { name, email, password } = {}) => doRegister(name, email, password))
 ipcMain.handle('auth-logout', () => doLogout())
+// Size the window to exactly fit the rendered content (no scroll), clamped to
+// the screen. The renderer measures its view and calls this on every layout change.
+ipcMain.handle('fit-window', (_e, h) => {
+  if (!win || win.isDestroyed()) return
+  const [w] = win.getContentSize()
+  const maxH = (screen.getPrimaryDisplay().workAreaSize.height || 900) - 60
+  win.setContentSize(w, Math.max(140, Math.min(Math.round(h) + 2, maxH)))
+})
 // The renderer can't hold the token, so it asks the main process for its data.
 ipcMain.handle('time-daily', async () => {
   if (!config.token) return null
@@ -424,10 +432,11 @@ ipcMain.handle('set-config', (_e, patch) => {
   pushStatus(); return config
 })
 
+const COMPACT_H = 260, EXPANDED_H = 820
 function createWindow() {
   win = new BrowserWindow({
-    width: 460, height: 820, resizable: true,
-    backgroundColor: '#f5f8f6', title: 'Delegent', autoHideMenuBar: true,
+    width: 420, height: COMPACT_H, resizable: true,
+    backgroundColor: '#08110f', title: 'Delegent', autoHideMenuBar: true,
     webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false },
   })
   win.loadFile(join(__dirname, '..', 'renderer', 'index.html'))
