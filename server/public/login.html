@@ -6,42 +6,45 @@
   <title>Delegent — Sign in</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <style>
-    :root { --nav:#0e3d2d; --green:#22a05a; --green-d:#15803d; --ink:#0f2a20; --muted:#5f6f67; --line:#e4ebe7; --bg:#f5f8f6; --red:#e8513b; }
+    :root { --bg:#030712; --panel:rgba(15,23,42,0.55); --panel2:rgba(15,23,42,0.35); --border:rgba(45,212,191,0.12); --line:rgba(255,255,255,0.07);
+      --teal:#2dd4bf; --teal-h:#5eead4; --t1:#f1f5f9; --t2:#94a3b8; --t3:#64748b; --red:#f87171; }
     * { box-sizing:border-box; }
-    body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--ink);
-      min-height:100vh; display:flex; align-items:center; justify-content:center; }
-    .card { background:#fff; border:1px solid var(--line); border-radius:14px; width:380px; max-width:92vw;
-      box-shadow:0 12px 40px rgba(14,61,45,.12); overflow:hidden; }
-    .head { background:var(--nav); color:#fff; padding:22px 26px; }
+    body { margin:0; font-family:'Inter','Segoe UI',system-ui,sans-serif; color:var(--t1);
+      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+      background:radial-gradient(ellipse 70% 55% at 50% 18%, rgba(45,212,191,0.06), transparent 70%), #030712; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; width:380px; max-width:92vw;
+      box-shadow:0 24px 60px rgba(0,0,0,0.5); backdrop-filter:blur(20px); overflow:hidden; }
+    .head { padding:24px 26px 4px; }
     .head .brandrow { display:flex; align-items:center; gap:10px; }
-    .head .tile { width:34px; height:34px; border-radius:9px; background:var(--green); color:#fff; font-weight:800; font-size:21px; display:flex; align-items:center; justify-content:center; }
-    .head .org { font-size:17px; color:#fff; font-weight:800; letter-spacing:.3px; }
-    .head .ttl { font-size:24px; font-weight:800; margin-top:10px; }
-    .tabs { display:flex; border-bottom:1px solid var(--line); }
-    .tabs button { flex:1; padding:14px 0; background:#fff; border:none; font-size:15px; font-weight:600; color:var(--muted); cursor:pointer; }
-    .tabs button.on { color:var(--green-d); box-shadow:inset 0 -2px 0 var(--green); }
-    .body { padding:24px 26px 28px; }
-    label { display:block; font-size:13px; font-weight:600; color:var(--ink); margin:14px 0 5px; }
-    input { width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:8px; font-size:15px; outline:none; }
-    input:focus { border-color:var(--green); }
+    .head .tile { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#0d3d56,#071a2b); border:1px solid rgba(45,212,191,0.25); color:var(--teal); font-weight:800; font-size:20px; display:flex; align-items:center; justify-content:center; }
+    .head .org { font-size:18px; color:var(--t1); font-weight:800; letter-spacing:.2px; }
+    .head .ttl { font-size:23px; font-weight:800; margin-top:12px; color:var(--t1); }
+    .tabs { display:flex; border-bottom:1px solid var(--line); margin-top:8px; }
+    .tabs button { flex:1; padding:14px 0; background:transparent; border:none; font-size:15px; font-weight:600; color:var(--t3); cursor:pointer; }
+    .tabs button.on { color:var(--teal); box-shadow:inset 0 -2px 0 var(--teal); }
+    .body { padding:22px 26px 28px; }
+    label { display:block; font-size:13px; font-weight:600; color:var(--t2); margin:14px 0 5px; }
+    input { width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:9px; font-size:15px; outline:none; background:var(--panel2); color:var(--t1); }
+    input::placeholder { color:var(--t3); }
+    input:focus { border-color:rgba(45,212,191,0.45); }
     .pwwrap { position:relative; }
     .pwwrap input { padding-right:44px; }
     .pwtoggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:17px; line-height:1; opacity:.55; padding:6px; }
     .pwtoggle:hover { opacity:1; }
-    .btn { width:100%; margin-top:20px; background:var(--green); color:#fff; border:none; padding:13px; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; }
-    .btn:hover { background:var(--green-d); }
+    .btn { width:100%; margin-top:20px; background:var(--teal); color:#030712; border:none; padding:13px; border-radius:9px; font-size:15px; font-weight:800; cursor:pointer; transition:.25s; }
+    .btn:hover { background:var(--teal-h); box-shadow:0 0 28px rgba(45,212,191,0.25); }
     .btn:disabled { opacity:.6; cursor:default; }
     .msg { font-size:13px; margin-top:14px; min-height:16px; }
-    .msg.err { color:var(--red); } .msg.ok { color:var(--green-d); }
-    .hint { font-size:12px; color:var(--muted); margin-top:14px; line-height:1.5; }
+    .msg.err { color:var(--red); } .msg.ok { color:var(--teal); }
+    .hint { font-size:12px; color:var(--t3); margin-top:14px; line-height:1.5; }
     .name-field { display:none; }
     .reqs { display:none; margin-top:10px; font-size:12px; }
-    .reqs div { display:flex; align-items:center; gap:7px; color:var(--muted); margin-top:4px; }
-    .reqs div::before { content:'○'; color:#c2c8d0; font-size:13px; }
-    .reqs div.ok { color:var(--green-d); }
-    .reqs div.ok::before { content:'✓'; color:var(--green); }
+    .reqs div { display:flex; align-items:center; gap:7px; color:var(--t3); margin-top:4px; }
+    .reqs div::before { content:'○'; color:#3a4a5a; font-size:13px; }
+    .reqs div.ok { color:var(--teal); }
+    .reqs div.ok::before { content:'✓'; color:var(--teal); }
     .forgot { text-align:right; margin-top:8px; }
-    .forgot a { font-size:12px; color:var(--green-d); cursor:pointer; text-decoration:none; }
+    .forgot a { font-size:12px; color:var(--teal); cursor:pointer; text-decoration:none; }
     .forgot a:hover { text-decoration:underline; }
   </style>
 </head>
