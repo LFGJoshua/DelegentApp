@@ -549,6 +549,37 @@ app.get('/api/report/apps', requireAuth, async (req, res) => {
   })
 })
 
+// Detailed report: one row per work session (start→end) with duration + the
+// average activity over that session, for a date range.
+app.get('/api/report/detailed', requireAuth, async (req, res) => {
+  const agentId = isAdmin(req) ? req.query.agentId : req.user.id
+  if (!agentId) return res.status(400).json({ error: 'agentId required' })
+  const tz = tzMin(req)
+  const [fy, fm, fd] = String(req.query.from || '').split('-').map(Number)
+  const [ty, tm, td] = String(req.query.to || '').split('-').map(Number)
+  const fromStart = localDayMs(fy, fm - 1, fd, tz)
+  const toEnd = localDayMs(ty, tm - 1, td, tz) + 86400000
+  const now = Date.now()
+
+  const agent = await db.prepare('SELECT name FROM agents WHERE id = ?').get(agentId)
+  const employee = (agent && agent.name) || agentId.slice(0, 8)
+
+  const segs = await db.prepare(`SELECT started_at, ended_at, seconds, open, note FROM work_segments
+    WHERE agent_id = ? AND started_at >= ? AND started_at < ? ORDER BY started_at ASC`).all(agentId, fromStart, toEnd)
+  const shots = await db.prepare(`SELECT captured_at AS t, activity_pct AS a FROM screenshots
+    WHERE agent_id = ? AND captured_at >= ? AND captured_at < ?`).all(agentId, fromStart - 3600000, toEnd)
+
+  const rows = segs.map((s) => {
+    const [st, en] = segInterval(s, now)
+    const durationSec = Math.round((en - st) / 1000)
+    const acts = shots.filter((x) => x.a != null && x.t >= st && x.t <= en).map((x) => x.a)
+    const activity = acts.length ? Math.round(acts.reduce((p, c) => p + c, 0) / acts.length) : null
+    return { date: st, from: st, to: en, durationSec, note: (s.note && s.note.trim()) || null, activity }
+  }).filter((r) => r.durationSec > 0)
+
+  res.json({ employee, rows })
+})
+
 // Home overview: one row per agent with last-active + Today/Yesterday/Week/Month
 // totals and the latest screenshot thumbnail.
 app.get('/api/overview', requireAuth, async (req, res) => {

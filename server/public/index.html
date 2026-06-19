@@ -144,6 +144,15 @@
     .rep-table .rrow { display:flex; padding:14px; border-bottom:1px solid var(--line); font-size:15px; color:#3a4452; }
     .rep-table .rrow b { color:#0f2a20; }
 
+    /* Detailed report table */
+    .det { width:100%; border-collapse:collapse; font-size:14px; }
+    .det th { text-align:left; color:var(--accent); font-weight:700; font-size:13px; padding:12px 12px; background:#eef3f0; border-bottom:1px solid var(--line); }
+    .det th.r, .det td.r { text-align:right; }
+    .det td { padding:13px 12px; border-bottom:1px solid var(--line); color:#3a4452; }
+    .det tr:hover td { background:#f1f7f3; }
+    .det .muted { color:#8a93a0; }
+    .det .empty-row td { text-align:center; color:var(--muted); padding:30px; }
+
     /* Admin settings */
     .set-intro { background:#fcf3d8; border:1px solid #ecdca0; color:#7a5b00; padding:12px 16px; border-radius:8px; font-size:14px; margin-bottom:18px; max-width:760px; }
     .set-row { display:flex; align-items:center; gap:14px; margin-bottom:18px; max-width:760px; }
@@ -256,7 +265,7 @@
           <input class="rep-input" placeholder="Select projects" disabled />
           <input class="rep-input" id="repNote" placeholder="Note contains text" />
           <div class="rep-types">
-            <a>Summary by project</a><a>Summary by employee</a><a>Daily by employee</a><a>Detailed</a><a class="on">Apps &amp; URLs</a>
+            <a>Summary by project</a><a>Summary by employee</a><a>Daily by employee</a><a data-type="detailed">Detailed</a><a data-type="apps" class="on">Apps &amp; URLs</a>
           </div>
           <div class="rep-actions">
             <a id="repExcel">⬇ Excel</a><a id="repPdf">⬇ PDF</a>
@@ -266,14 +275,15 @@
         <div class="rep-tabs">
           <span>Timeline</span><span>Employees</span><span>Projects</span><span>Notes</span><span class="on">Apps &amp; URLs</span>
         </div>
-        <div class="rep-apps">
+        <div class="rep-apps" id="repAppsView">
           <div class="rep-total"><div class="rt-big" id="repTotal">0h 0m</div><div class="rt-act" id="repAct">0%</div></div>
           <div class="rep-chart"><div class="donut" id="repDonut"></div><div class="legend" id="repLegend"></div></div>
         </div>
-        <div class="rep-table">
+        <div class="rep-table" id="repTableView">
           <div class="rt-head"><span>Employee</span><span>Duration</span><span>Activity</span></div>
           <div id="repTableBody"></div>
         </div>
+        <div id="repDetailed" style="display:none"></div>
       </div><!-- /reportView -->
 
       <div id="settingsView" style="display:none">
@@ -471,6 +481,14 @@
     // ---- Reports ----
     const APP_COLORS = ['#3b6fd6','#d6453b','#e8a33b','#39a85a','#8b3bd6','#3bc0d6','#d63b9e','#7a8a3b','#b0563b','#5b6471','#c2c8d0']
     let repFrom = null, repTo = null
+    let repType = 'apps' // 'apps' | 'detailed'
+    function applyRepType(t) {
+      repType = t
+      document.querySelectorAll('.rep-types a[data-type]').forEach(a => a.classList.toggle('on', a.dataset.type === t))
+      $('repAppsView').style.display = t === 'apps' ? '' : 'none'
+      $('repTableView').style.display = t === 'apps' ? '' : 'none'
+      $('repDetailed').style.display = t === 'detailed' ? 'block' : 'none'
+    }
     const fmtD = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(2)}`
     const apiD = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 
@@ -502,6 +520,7 @@
     async function loadReport() {
       const id = $('repEmployee').value || agentId
       if (!id || !repFrom) return
+      if (repType === 'detailed') return loadDetailed(id)
       const data = await fetch(`/api/report/apps?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}&tz=${TZMIN}`).then(r=>r.json())
       $('repTotal').textContent = hm(data.totalWorked)
       $('repAct').textContent = data.activity + '%'
@@ -512,6 +531,27 @@
       const empName = ($('repEmployee').options[$('repEmployee').selectedIndex]||{}).text || ''
       $('repTableBody').innerHTML = `<div class="rrow"><span><b>${esc(empName)}</b></span><span>${hm(data.totalWorked)}</span><span>${data.activity}%</span></div>`
       window._repData = data
+    }
+
+    async function loadDetailed(id) {
+      const data = await fetch(`/api/report/detailed?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}&tz=${TZMIN}`).then(r=>r.json())
+      const rows = data.rows || []
+      const dFmt = (ts) => new Date(ts).toLocaleDateString(undefined,{day:'2-digit',month:'2-digit',year:'2-digit'})
+      const tFmt = (ts) => new Date(ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}).toLowerCase().replace(' ','')
+      const body = rows.length ? rows.map(r => `<tr>
+        <td>${dFmt(r.date)}</td>
+        <td>${esc(data.employee)}</td>
+        <td class="muted">No project</td>
+        <td>${r.note ? esc(r.note) : '<span class="muted">No note</span>'}</td>
+        <td>${tFmt(r.from)}</td>
+        <td>${tFmt(r.to)}</td>
+        <td class="r">${hm(r.durationSec)}</td>
+        <td class="r">${r.activity==null?'—':r.activity+'%'}</td>
+      </tr>`).join('') : '<tr class="empty-row"><td colspan="8">No sessions in this range.</td></tr>'
+      $('repDetailed').innerHTML = `<table class="det">
+        <thead><tr><th>Date</th><th>Employee</th><th>Project</th><th>Note</th><th>From</th><th>To</th><th class="r">Duration</th><th class="r">Activity</th></tr></thead>
+        <tbody>${body}</tbody></table>`
+      window._repDetailed = { employee: data.employee, rows }
     }
 
     async function loadCalendar() {
@@ -603,11 +643,17 @@
     $('repShow').onclick = loadReport
     $('repEmployee').onchange = loadReport
     ;[...document.querySelectorAll('.presets a')].forEach(a => a.onclick = () => setPreset(a.dataset.preset))
+    ;[...document.querySelectorAll('.rep-types a[data-type]')].forEach(a => a.onclick = () => { applyRepType(a.dataset.type); loadReport() })
     $('repExcel').onclick = () => {
+      const dl = (csv) => { const u = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); const x = document.createElement('a'); x.href = u; x.download = 'delegent-report.csv'; x.click() }
+      if (repType === 'detailed') {
+        const d = window._repDetailed; if (!d) return
+        const csv = 'Date,Employee,Note,From,To,Duration,Activity\n' + d.rows.map(r =>
+          `${apiD(new Date(r.date))},${d.employee},"${(r.note||'').replace(/"/g,'""')}",${new Date(r.from).toISOString()},${new Date(r.to).toISOString()},${hm(r.durationSec)},${r.activity==null?'':r.activity+'%'}`).join('\n')
+        return dl(csv)
+      }
       const d = window._repData; if (!d) return
-      const csv = 'App,Percent,Duration(s)\n' + d.apps.map(a=>`${a.app},${a.pct},${a.seconds}`).join('\n')
-      const u = URL.createObjectURL(new Blob([csv], {type:'text/csv'}))
-      const x = document.createElement('a'); x.href = u; x.download = 'delegent-report.csv'; x.click()
+      dl('App,Percent,Duration(s)\n' + d.apps.map(a=>`${a.app},${a.pct},${a.seconds}`).join('\n'))
     }
     $('repPdf').onclick = () => window.print()
 
