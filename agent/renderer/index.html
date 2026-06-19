@@ -333,7 +333,7 @@
     $('gearBtn').onclick = (e) => { e.stopPropagation(); toggleMenu() }
     $('nameBar').onclick = (e) => { e.stopPropagation(); toggleMenu() }
     document.addEventListener('click', () => $('menu').classList.remove('open'))
-    $('mDash').onclick = () => { if (cfg) window.open(cfg.serverUrl, '_blank') }
+    $('mDash').onclick = () => { if (cfg) window.open(cfg.serverUrl.replace(/\/$/, '') + '/dashboard', '_blank') }
     $('mLogout').onclick = async () => { await window.agent.logout(); const s = await window.agent.getState(); onStatus(s) }
     let expanded = false
     $('expandBtn').onclick = () => {
