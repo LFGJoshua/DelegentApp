@@ -52,7 +52,9 @@ app.get('/reset', (_req, res) => res.sendFile(join(__dirname, 'public', 'reset.h
 app.get('/login.html', (_req, res) => res.redirect(301, '/login'))
 app.get('/download.html', (_req, res) => res.redirect(301, '/download'))
 
-app.use('/', express.static(join(__dirname, 'public')))
+app.use('/', express.static(join(__dirname, 'public'), {
+  setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache') },
+}))
 
 const upsertAgent = db.prepare(`
   INSERT INTO agents (id, name, last_seen, user_id) VALUES (@id, @name, @last_seen, @user_id)
