@@ -51,6 +51,7 @@ app.get('/dashboard', (_req, res) => res.sendFile(join(__dirname, 'public', 'ind
 app.get('/login', (_req, res) => res.sendFile(join(__dirname, 'public', 'login.html')))
 app.get('/download', (_req, res) => res.sendFile(join(__dirname, 'public', 'download.html')))
 app.get('/reset', (_req, res) => res.sendFile(join(__dirname, 'public', 'reset.html')))
+app.get('/report', (_req, res) => res.sendFile(join(__dirname, 'public', 'report.html')))
 app.get('/login.html', (_req, res) => res.redirect(301, '/login'))
 app.get('/download.html', (_req, res) => res.redirect(301, '/download'))
 
@@ -306,6 +307,14 @@ async function readPrefsByType() {
   return out
 }
 
+// Global weekly-email automation config.
+async function readWeeklyEmail() {
+  const row = await getSetting.get('weeklyEmail')
+  let v = {}
+  try { v = row ? JSON.parse(row.value) : {} } catch {}
+  return { enabled: !!v.enabled, tz: Number.isFinite(v.tz) ? v.tz : 480, lastSent: v.lastSent || null }
+}
+
 // ?type=X → just that type's signals (used by the agent). No type → full map (UI).
 app.get('/api/settings', requireAuth, async (req, res) => {
   const byType = await readByType()
@@ -313,7 +322,7 @@ app.get('/api/settings', requireAuth, async (req, res) => {
     const t = USER_TYPES.includes(req.query.type) ? req.query.type : 'Default'
     return res.json({ type: t, signals: byType[t] })
   }
-  res.json({ types: USER_TYPES, signalsByType: byType, prefsByType: await readPrefsByType() })
+  res.json({ types: USER_TYPES, signalsByType: byType, prefsByType: await readPrefsByType(), weeklyEmail: await readWeeklyEmail() })
 })
 
 // The agent's own signal profile + desktop prefs — resolved from the logged-in
@@ -341,7 +350,15 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
     prefsByType[t] = np
     await setSetting.run({ k: 'prefsByType', v: JSON.stringify(prefsByType) })
   }
-  res.json({ ok: true, type: t, signals: next, prefs: prefsByType[t] })
+
+  let weeklyEmail
+  if (req.body.weeklyEmail) {
+    weeklyEmail = await readWeeklyEmail()
+    weeklyEmail.enabled = !!req.body.weeklyEmail.enabled
+    if (Number.isFinite(req.body.weeklyEmail.tz)) weeklyEmail.tz = req.body.weeklyEmail.tz
+    await setSetting.run({ k: 'weeklyEmail', v: JSON.stringify(weeklyEmail) })
+  }
+  res.json({ ok: true, type: t, signals: next, prefs: prefsByType[t], weeklyEmail })
 })
 
 // Agent uploads a screenshot (base64 PNG + metadata). Ownership comes from the
@@ -659,6 +676,63 @@ app.get('/api/report/daily', requireAuth, async (req, res) => {
   res.json({ employee, total: { seconds: totalSec, activity: actN ? Math.round(actSum / actN) : 0 }, days })
 })
 
+// Weekly report aggregation across a set of agents over a range — powers the
+// printable report page and the scheduled email.
+async function weeklyData(agents, fromStart, toEnd, tz) {
+  const now = Date.now()
+  const dayMap = new Map()
+  const appCounts = new Map()
+  const employees = []
+  let totalSec = 0, actSum = 0, actN = 0, totalShots = 0
+  for (const a of agents) {
+    const segs = await db.prepare(`SELECT started_at, ended_at, seconds, open FROM work_segments WHERE agent_id = ? AND started_at >= ? AND started_at < ?`).all(a.id, fromStart, toEnd)
+    let empSec = 0
+    for (const s of segs) {
+      const [st, en] = segInterval(s, now)
+      const sec = Math.round(overlap(st, en, fromStart, toEnd) / 1000)
+      if (sec <= 0) continue
+      empSec += sec
+      const dk = startOfLocalDay(st, tz)
+      dayMap.set(dk, (dayMap.get(dk) || 0) + sec)
+    }
+    const shots = await db.prepare(`SELECT active_app AS app, activity_pct AS act FROM screenshots WHERE agent_id = ? AND captured_at >= ? AND captured_at < ?`).all(a.id, fromStart, toEnd)
+    let eSum = 0, eN = 0
+    for (const sh of shots) {
+      const app = (sh.app && sh.app.trim()) || 'Unknown'
+      appCounts.set(app, (appCounts.get(app) || 0) + 1)
+      totalShots++
+      if (sh.act != null) { actSum += sh.act; actN++; eSum += sh.act; eN++ }
+    }
+    employees.push({ name: a.name || a.id.slice(0, 8), seconds: empSec, activity: eN ? Math.round(eSum / eN) : 0 })
+    totalSec += empSec
+  }
+  const days = []
+  for (let d = fromStart; d < toEnd; d += 86400000) days.push({ date: d, seconds: dayMap.get(d) || 0 })
+  const ts = totalShots || 1
+  let apps = [...appCounts.entries()].map(([app, c]) => ({ app, pct: Math.round((c / ts) * 100), seconds: Math.round((c / ts) * totalSec) })).sort((a, b) => b.seconds - a.seconds)
+  if (apps.length > 8) {
+    const top = apps.slice(0, 8), rest = apps.slice(8)
+    top.push({ app: 'Other', pct: rest.reduce((a, b) => a + b.pct, 0), seconds: rest.reduce((a, b) => a + b.seconds, 0) })
+    apps = top
+  }
+  employees.sort((a, b) => b.seconds - a.seconds)
+  return { from: fromStart, to: toEnd, totalSeconds: totalSec, avgActivity: actN ? Math.round(actSum / actN) : 0, days, employees, apps }
+}
+
+// Weekly report data for the printable page.
+app.get('/api/report/weekly', requireAuth, async (req, res) => {
+  const tz = tzMin(req)
+  const [fy, fm, fd] = String(req.query.from || '').split('-').map(Number)
+  const [ty, tm, td] = String(req.query.to || '').split('-').map(Number)
+  if (!fy || !ty) return res.status(400).json({ error: 'from and to required' })
+  const fromStart = localDayMs(fy, fm - 1, fd, tz)
+  const toEnd = localDayMs(ty, tm - 1, td, tz) + 86400000
+  const agents = isAdmin(req)
+    ? await db.prepare(`SELECT id, name FROM agents`).all()
+    : await db.prepare(`SELECT id, name FROM agents WHERE id = ?`).all(req.user.id)
+  res.json(await weeklyData(agents, fromStart, toEnd, tz))
+})
+
 // Home overview: one row per agent with last-active + Today/Yesterday/Week/Month
 // totals and the latest screenshot thumbnail.
 app.get('/api/overview', requireAuth, async (req, res) => {
@@ -869,11 +943,65 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'server error' })
 })
 
+// Weekly report email: once per week (early in the new week) email admins the
+// previous week's activity report. Runs hourly; idempotent via lastSent.
+const _pad2 = (n) => String(n).padStart(2, '0')
+const _hm = (s) => { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}h ${m}m` : `${m}m` }
+const _ymd = (ms, tz) => { const d = new Date(ms + tz * 60000); return `${d.getUTCFullYear()}-${_pad2(d.getUTCMonth() + 1)}-${_pad2(d.getUTCDate())}` }
+async function sendWeeklyReport() {
+  try {
+    const cfg = await readWeeklyEmail()
+    if (!cfg.enabled || !mailReady) return
+    const tz = cfg.tz
+    const todayStart = startOfLocalDay(Date.now(), tz)
+    const thisWeekStart = todayStart - localDow(todayStart, tz) * 86400000
+    const weekStart = thisWeekStart - 7 * 86400000   // previous Sun..Sat
+    const weekEnd = thisWeekStart
+    const weekKey = String(weekStart)
+    if (cfg.lastSent === weekKey) return
+
+    const agents = await db.prepare('SELECT id, name FROM agents').all()
+    const data = await weeklyData(agents, weekStart, weekEnd, tz)
+    const admins = await db.prepare("SELECT email FROM users WHERE role = 'admin'").all()
+    const fromY = _ymd(weekStart, tz), toY = _ymd(weekEnd - 86400000, tz)
+
+    if (admins.length && data.totalSeconds > 0) {
+      const base = (process.env.APP_URL || '').replace(/\/$/, '')
+      const link = base ? `${base}/report?from=${fromY}&to=${toY}` : ''
+      const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const dayRows = data.days.map((x) => { const d = new Date(x.date + tz * 60000); return `<tr><td style="padding:4px 12px;color:#374151">${DOW[d.getUTCDay()]} ${MON[d.getUTCMonth()]} ${d.getUTCDate()}</td><td style="padding:4px 12px;text-align:right;color:#374151">${_hm(x.seconds)}</td></tr>` }).join('')
+      const empRows = data.employees.map((e) => `<tr><td style="padding:6px 12px;border-top:1px solid #eee">${e.name}</td><td style="padding:6px 12px;text-align:right;border-top:1px solid #eee">${_hm(e.seconds)}</td><td style="padding:6px 12px;text-align:right;border-top:1px solid #eee">${e.activity}%</td></tr>`).join('')
+      const appRows = data.apps.slice(0, 6).map((a) => `<tr><td style="padding:3px 12px;color:#374151">${a.app}</td><td style="padding:3px 12px;text-align:right;color:#6b7280">${a.pct}%</td></tr>`).join('')
+      const html = `<div style="font-family:'Segoe UI',Arial,sans-serif;color:#1f2937;max-width:560px">
+        <h2 style="margin:0 0 4px">Delegent — Weekly Activity Report</h2>
+        <p style="color:#6b7280;margin:0 0 16px">${fromY} to ${toY}</p>
+        <p style="font-size:18px;margin:0 0 18px"><b>${_hm(data.totalSeconds)}</b> tracked &middot; <b>${data.avgActivity}%</b> avg activity</p>
+        <h3 style="margin:18px 0 6px;color:#2563eb">By day</h3>
+        <table style="border-collapse:collapse;font-size:14px">${dayRows}</table>
+        <h3 style="margin:18px 0 6px;color:#2563eb">Employees</h3>
+        <table style="border-collapse:collapse;font-size:14px;width:100%"><tr><th style="text-align:left;padding:6px 12px;color:#6b7280">Employee</th><th style="text-align:right;padding:6px 12px;color:#6b7280">Duration</th><th style="text-align:right;padding:6px 12px;color:#6b7280">Activity</th></tr>${empRows}</table>
+        <h3 style="margin:18px 0 6px;color:#2563eb">Top apps</h3>
+        <table style="border-collapse:collapse;font-size:14px">${appRows}</table>
+        ${link ? `<p style="margin:22px 0"><a href="${link}" style="background:#15803d;color:#fff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:700">View full report</a></p>` : ''}
+      </div>`
+      for (const ad of admins) {
+        try { await sendMail({ to: ad.email, subject: `Delegent weekly report — ${fromY} to ${toY}`, html }) }
+        catch (e) { console.error('weekly email send failed for', ad.email, ':', e.message) }
+      }
+      console.log(`Weekly report emailed to ${admins.length} admin(s) for ${fromY}`)
+    }
+    cfg.lastSent = weekKey
+    await setSetting.run({ k: 'weeklyEmail', v: JSON.stringify(cfg) })
+  } catch (e) { console.error('sendWeeklyReport error:', e.message) }
+}
+
 // Initialize the database schema, then start listening.
 db.init().then(() => {
   const server = app.listen(PORT, () => {
     console.log(`Delegent server listening on http://localhost:${PORT}`)
   })
+  setTimeout(sendWeeklyReport, 30000)            // shortly after boot
+  setInterval(sendWeeklyReport, 60 * 60 * 1000)  // hourly check
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.error(`\n⚠ Port ${PORT} is already in use — a Delegent server is probably already running.`)

@@ -314,6 +314,15 @@
           <label class="switch"><input type="checkbox" id="prefScreenshotPreview"><span class="slider"></span></label>
         </div>
 
+        <div class="set-intro" style="margin-top:24px;background:rgba(45,212,191,0.06);border-color:rgba(45,212,191,0.2);color:#7ee0bd">Weekly reports.</div>
+        <div class="sig">
+          <div class="info"><h4>Email weekly activity report</h4><p>Automatically email admins a weekly activity report (the same layout you can generate below) at the start of each week.</p></div>
+          <label class="switch"><input type="checkbox" id="prefWeeklyEmail"><span class="slider"></span></label>
+        </div>
+        <div class="set-row" style="margin-top:4px">
+          <button id="genReport" class="show-btn" style="background:transparent;border:1px solid var(--border);color:var(--accent)">📊 Generate weekly report</button>
+        </div>
+
         <div class="set-actions">
           <span id="setStatus" class="set-status"></span>
           <button id="saveSettings" class="show-btn">Save settings</button>
@@ -474,6 +483,7 @@
         </div>`).join('')
       const prefs = (allSettings.prefsByType && allSettings.prefsByType[type]) || {}
       $('prefScreenshotPreview').checked = !!prefs.screenshotPreview
+      $('prefWeeklyEmail').checked = !!(allSettings.weeklyEmail && allSettings.weeklyEmail.enabled)
     }
     async function showSettings() {
       setViews('settings')
@@ -489,9 +499,11 @@
       const signals = {}
       document.querySelectorAll('#signalList input[data-key]').forEach(i => signals[i.dataset.key] = i.checked)
       const prefs = { screenshotPreview: $('prefScreenshotPreview').checked }
-      const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, signals, prefs }) }).then(r=>r.json())
+      const weeklyEmail = { enabled: $('prefWeeklyEmail').checked }
+      const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, signals, prefs, weeklyEmail }) }).then(r=>r.json())
       allSettings.signalsByType[type] = r.signals
       if (r.prefs) { allSettings.prefsByType = allSettings.prefsByType || {}; allSettings.prefsByType[type] = r.prefs }
+      if (r.weeklyEmail) allSettings.weeklyEmail = r.weeklyEmail
       $('setStatus').textContent = `✓ Saved for "${type}" — applies to those agents within ~15s`
     }
     function showHome() { setViews('home'); loadOverview() }
@@ -690,6 +702,7 @@
     $('tabSettings').onclick = showSettings
     $('tabUsers').onclick = showUsers
     $('saveSettings').onclick = saveSettings
+    $('genReport').onclick = () => window.open('/report', '_blank')
     $('logoutBtn').onclick = async () => { await fetch('/api/auth/logout', { method:'POST' }); location.href = '/login' }
 
     // Report interactions
