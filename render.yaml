@@ -22,14 +22,16 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # Email (SMTP) for password-reset links:
+      # Email via Resend SMTP for password-reset links.
       - key: SMTP_HOST
-        sync: false
+        value: smtp.resend.com
       - key: SMTP_PORT
-        value: "587"
+        value: "465"
       - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
+        value: resend
       - key: SMTP_FROM
-        sync: false
+        value: Delegent <support@talentportal.stallionly.com>
+      - key: SMTP_PASS
+        sync: false            # Resend API key — set in the dashboard
+      - key: APP_URL
+        value: https://delegent-server.onrender.com
