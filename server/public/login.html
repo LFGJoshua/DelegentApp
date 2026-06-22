@@ -112,7 +112,10 @@
         $('hint').textContent = ''
       }
       $('msg').textContent = ''
-      if (isReg) renderReqs()
+      // Clear fields when switching tabs.
+      $('email').value = ''; $('password').value = ''; $('name').value = ''
+      $('password').type = 'password'; $('pwToggle').textContent = '👁'; $('pwToggle').title = 'Show password'
+      renderReqs()
     }
     $('tabLogin').onclick = () => setMode('login')
     $('tabRegister').onclick = () => setMode('register')

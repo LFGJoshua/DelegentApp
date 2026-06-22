@@ -354,6 +354,8 @@
       $('lNameWrap').style.display = m === 'register' ? 'block' : 'none'
       $('lHint').textContent = m === 'register' ? 'The first account created becomes the admin/manager. Everyone after is an employee.' : ''
       $('lMsg').textContent = ''
+      // Clear fields when switching tabs.
+      $('lEmail').value = ''; $('lPassword').value = ''; $('lName').value = ''
       fitWindow()
     }
     $('lTabLogin').onclick = () => setAuthMode('login')
