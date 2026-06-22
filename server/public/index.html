@@ -307,6 +307,13 @@
           <select id="userTypeSel" class="rep-input" style="max-width:280px;margin-bottom:0"></select>
         </div>
         <div id="signalList"></div>
+
+        <div class="set-intro" style="margin-top:24px;background:rgba(45,212,191,0.06);border-color:rgba(45,212,191,0.2);color:#7ee0bd">Desktop app notifications for this user type.</div>
+        <div class="sig">
+          <div class="info"><h4>Screenshot preview notification</h4><p>Show a small popup on the employee's desktop previewing each screenshot as it's captured.</p></div>
+          <label class="switch"><input type="checkbox" id="prefScreenshotPreview"><span class="slider"></span></label>
+        </div>
+
         <div class="set-actions">
           <span id="setStatus" class="set-status"></span>
           <button id="saveSettings" class="show-btn">Save settings</button>
@@ -465,6 +472,8 @@
           <div class="info"><h4>${s.name}</h4><p>${s.desc}</p></div>
           <label class="switch"><input type="checkbox" data-key="${s.key}" ${signals[s.key] ? 'checked' : ''}><span class="slider"></span></label>
         </div>`).join('')
+      const prefs = (allSettings.prefsByType && allSettings.prefsByType[type]) || {}
+      $('prefScreenshotPreview').checked = !!prefs.screenshotPreview
     }
     async function showSettings() {
       setViews('settings')
@@ -479,8 +488,10 @@
       const type = $('userTypeSel').value
       const signals = {}
       document.querySelectorAll('#signalList input[data-key]').forEach(i => signals[i.dataset.key] = i.checked)
-      const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, signals }) }).then(r=>r.json())
+      const prefs = { screenshotPreview: $('prefScreenshotPreview').checked }
+      const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, signals, prefs }) }).then(r=>r.json())
       allSettings.signalsByType[type] = r.signals
+      if (r.prefs) { allSettings.prefsByType = allSettings.prefsByType || {}; allSettings.prefsByType[type] = r.prefs }
       $('setStatus').textContent = `✓ Saved for "${type}" — applies to those agents within ~15s`
     }
     function showHome() { setViews('home'); loadOverview() }

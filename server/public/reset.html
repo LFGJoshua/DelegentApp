@@ -26,8 +26,9 @@
     input:focus { border-color:rgba(45,212,191,0.45); }
     .pwwrap { position:relative; }
     .pwwrap input { padding-right:44px; }
-    .pwtoggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:17px; line-height:1; opacity:.55; padding:6px; }
-    .pwtoggle:hover { opacity:1; }
+    .pwtoggle { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--t2); opacity:.75; padding:6px; display:flex; align-items:center; }
+    .pwtoggle:hover { opacity:1; color:var(--teal); }
+    .pwtoggle svg { width:19px; height:19px; display:block; }
     .btn { width:100%; margin-top:20px; background:var(--teal); color:#030712; border:none; padding:13px; border-radius:9px; font-size:15px; font-weight:800; cursor:pointer; transition:.25s; }
     .btn:hover { background:var(--teal-h); box-shadow:0 0 28px rgba(45,212,191,0.25); } .btn:disabled { opacity:.6; cursor:default; }
     .msg { font-size:13px; margin-top:14px; min-height:16px; } .msg.err { color:var(--red); } .msg.ok { color:var(--teal); }
@@ -49,7 +50,7 @@
         <label for="password">New password</label>
         <div class="pwwrap">
           <input id="password" type="password" autocomplete="new-password" placeholder="••••••••" required />
-          <button type="button" class="pwtoggle" id="pwToggle" title="Show password">👁</button>
+          <button type="button" class="pwtoggle" id="pwToggle" title="Show password"></button>
         </div>
         <div class="reqs" id="reqs">
           <div data-k="len">At least 8 characters</div>
@@ -68,6 +69,8 @@
 
   <script>
     const $ = (id) => document.getElementById(id)
+    const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>'
+    const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 2 12 2 12a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'
     const token = new URLSearchParams(location.search).get('token')
     if (!token) { $('msg').className = 'msg err'; $('msg').textContent = 'Missing reset token. Use the link from your email.'; $('submit').disabled = true }
 
@@ -77,10 +80,11 @@
       document.querySelectorAll('#reqs div').forEach((d) => d.classList.toggle('ok', !!c[d.dataset.k]))
     }
     $('password').addEventListener('input', renderReqs)
+    $('pwToggle').innerHTML = EYE
     $('pwToggle').onclick = () => {
       const t = $('password').type === 'password' ? 'text' : 'password'
       $('password').type = t; $('confirm').type = t
-      $('pwToggle').textContent = t === 'text' ? '🙈' : '👁'
+      $('pwToggle').innerHTML = t === 'text' ? EYE_OFF : EYE
     }
     const fail = (m) => { $('msg').className = 'msg err'; $('msg').textContent = m }
 

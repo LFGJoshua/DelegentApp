@@ -89,6 +89,7 @@ const state = {
   trustLabel: 'Trusted',
   lastHash: null,      // previous screenshot perceptual hash (Signal 4)
   enabledSignals: { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true },
+  screenshotPreview: false, // show a preview popup on each capture (admin setting)
 }
 
 // Pull the signed-in user's signal profile from the server. The server resolves
@@ -102,6 +103,7 @@ async function fetchSettings() {
       const j = await res.json()
       if (j.signals) state.enabledSignals = j.signals
       if (j.userType) config.userType = j.userType
+      state.screenshotPreview = !!j.screenshotPreview
     }
   } catch {}
 }
@@ -279,6 +281,7 @@ async function captureAndUpload() {
     state.shotCount++
     state.lastCaptureAt = Date.now()
     state.lastError = null
+    if (state.screenshotPreview) showScreenshotPreview(dataUrl)
   } catch (err) {
     state.lastError = String(err.message || err)
   }
@@ -391,6 +394,16 @@ ipcMain.handle('get-state', () => ({ ...state, sessionMs: sessionMs(), config, a
 ipcMain.handle('auth-login', (_e, { email, password } = {}) => doLogin(email, password))
 ipcMain.handle('auth-register', (_e, { name, email, password } = {}) => doRegister(name, email, password))
 ipcMain.handle('auth-logout', () => doLogout())
+// Request a password-reset email (unauthenticated). The reset link in the email
+// opens the web /reset page in the browser.
+ipcMain.handle('auth-forgot', async (_e, { email } = {}) => {
+  try {
+    await fetch(serverBase() + '/api/auth/forgot', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+    })
+    return { ok: true }
+  } catch { return { ok: false } }
+})
 // Size the window to exactly fit the rendered content (no scroll), clamped to
 // the screen. The renderer measures its view and calls this on every layout change.
 ipcMain.handle('fit-window', (_e, h) => {
@@ -433,6 +446,33 @@ ipcMain.handle('set-config', (_e, patch) => {
 })
 
 const COMPACT_H = 260, EXPANDED_H = 820
+// Screenshot-preview toast: a small frameless popup at the bottom-right that
+// shows the just-captured screenshot for a few seconds (admin-enabled).
+let previewWin = null, previewTimer = null
+function showScreenshotPreview(dataUrl) {
+  try {
+    const W = 300, H = 196, M = 16
+    const wa = screen.getPrimaryDisplay().workArea
+    const x = wa.x + wa.width - W - M, y = wa.y + wa.height - H - M
+    if (!previewWin || previewWin.isDestroyed()) {
+      previewWin = new BrowserWindow({
+        width: W, height: H, x, y, frame: false, transparent: true, resizable: false,
+        alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false,
+        webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false },
+      })
+      previewWin.loadFile(join(__dirname, '..', 'renderer', 'preview.html'))
+    } else {
+      previewWin.setBounds({ x, y, width: W, height: H })
+    }
+    const send = () => { try { previewWin.webContents.send('preview-image', dataUrl) } catch {} }
+    if (previewWin.webContents.isLoading()) previewWin.webContents.once('did-finish-load', send)
+    else send()
+    previewWin.showInactive()
+    if (previewTimer) clearTimeout(previewTimer)
+    previewTimer = setTimeout(() => { if (previewWin && !previewWin.isDestroyed()) previewWin.hide() }, 4500)
+  } catch {}
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 420, height: COMPACT_H, resizable: true,

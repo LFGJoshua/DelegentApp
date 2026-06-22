@@ -295,6 +295,17 @@ async function readByType() {
   return out
 }
 
+// Per-type desktop-app preferences (e.g. show a screenshot-preview popup).
+const DEFAULT_PREFS = { screenshotPreview: false }
+async function readPrefsByType() {
+  const row = await getSetting.get('prefsByType')
+  let stored = {}
+  try { stored = row ? JSON.parse(row.value) : {} } catch {}
+  const out = {}
+  for (const t of USER_TYPES) out[t] = { ...DEFAULT_PREFS, ...(stored[t] || {}) }
+  return out
+}
+
 // ?type=X → just that type's signals (used by the agent). No type → full map (UI).
 app.get('/api/settings', requireAuth, async (req, res) => {
   const byType = await readByType()
@@ -302,26 +313,35 @@ app.get('/api/settings', requireAuth, async (req, res) => {
     const t = USER_TYPES.includes(req.query.type) ? req.query.type : 'Default'
     return res.json({ type: t, signals: byType[t] })
   }
-  res.json({ types: USER_TYPES, signalsByType: byType })
+  res.json({ types: USER_TYPES, signalsByType: byType, prefsByType: await readPrefsByType() })
 })
 
-// The agent's own signal profile — resolved from the logged-in user's admin-
-// assigned user_type, so role/type changes take effect without reconfiguring.
+// The agent's own signal profile + desktop prefs — resolved from the logged-in
+// user's admin-assigned user_type, so changes apply without reconfiguring.
 app.get('/api/my-signals', requireAuth, async (req, res) => {
   const byType = await readByType()
+  const prefs = await readPrefsByType()
   const t = USER_TYPES.includes(req.user.user_type) ? req.user.user_type : 'Default'
-  res.json({ userType: t, signals: byType[t] })
+  res.json({ userType: t, signals: byType[t], screenshotPreview: !!prefs[t].screenshotPreview })
 })
 
 app.post('/api/settings', requireAdmin, async (req, res) => {
-  const { type, signals } = req.body || {}
+  const { type, signals, prefs } = req.body || {}
   const t = USER_TYPES.includes(type) ? type : 'Default'
   const byType = await readByType()
   const next = { ...byType[t], ...(signals || {}) }
   for (const k of Object.keys(DEFAULT_SIGNALS)) next[k] = !!next[k]
   byType[t] = next
   await setSetting.run({ k: 'signalsByType', v: JSON.stringify(byType) })
-  res.json({ ok: true, type: t, signals: next })
+
+  const prefsByType = await readPrefsByType()
+  if (prefs) {
+    const np = { ...prefsByType[t], ...prefs }
+    for (const k of Object.keys(DEFAULT_PREFS)) np[k] = !!np[k]
+    prefsByType[t] = np
+    await setSetting.run({ k: 'prefsByType', v: JSON.stringify(prefsByType) })
+  }
+  res.json({ ok: true, type: t, signals: next, prefs: prefsByType[t] })
 })
 
 // Agent uploads a screenshot (base64 PNG + metadata). Ownership comes from the

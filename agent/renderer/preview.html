@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    html, body { margin:0; height:100%; background:transparent; overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; }
+    .toast { margin:6px; height:calc(100% - 12px); background:#0d1422; border:1px solid rgba(45,212,191,0.25);
+      border-radius:12px; box-shadow:0 14px 34px rgba(0,0,0,0.55); overflow:hidden; display:flex; flex-direction:column; }
+    .hd { display:flex; align-items:center; gap:8px; padding:8px 12px; color:#cfe9ef; font-size:12px; font-weight:600; }
+    .hd .dot { width:8px; height:8px; border-radius:50%; background:#2dd4bf; box-shadow:0 0 8px #2dd4bf; }
+    .imgwrap { flex:1; background:#000; }
+    .imgwrap img { width:100%; height:100%; object-fit:cover; display:block; }
+  </style>
+</head>
+<body>
+  <div class="toast">
+    <div class="hd"><span class="dot"></span> Screenshot captured</div>
+    <div class="imgwrap"><img id="shot" alt="" /></div>
+  </div>
+  <script>
+    window.agent.onPreview((url) => { document.getElementById('shot').src = url })
+  </script>
+</body>
+</html>

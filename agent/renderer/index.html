@@ -109,6 +109,14 @@
     .login .ltabs button { flex:1; padding:11px 0; background:transparent; border:none; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
     .login .ltabs button.on { color:var(--teal); border-bottom-color:var(--teal); }
     .login label { display:block; font-size:12px; font-weight:600; margin:12px 0 4px; color:#c7d6d0; }
+    .login .lpwwrap { position:relative; }
+    .login .lpwwrap input { padding-right:42px; }
+    .login .lpwtoggle { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--muted); opacity:.75; padding:5px; display:flex; align-items:center; }
+    .login .lpwtoggle:hover { opacity:1; color:var(--teal); }
+    .login .lpwtoggle svg { width:18px; height:18px; display:block; }
+    .login .lforgot { text-align:right; margin-top:8px; }
+    .login .lforgot a { font-size:12px; color:var(--teal); cursor:pointer; text-decoration:none; }
+    .login .lforgot a:hover { text-decoration:underline; }
     .login input { width:100%; padding:11px 13px; border:1px solid var(--border); border-radius:9px; font-size:14px; outline:none; background:var(--card2); color:var(--text); }
     .login input:focus { border-color:rgba(43,212,167,.4); }
     .login .lbtn { width:100%; margin-top:16px; background:var(--teal-d); color:#06211c; border:none; padding:12px; border-radius:9px; font-size:14px; font-weight:800; cursor:pointer; }
@@ -136,8 +144,14 @@
         <div id="lNameWrap"><label for="lName">Name</label><input id="lName" type="text" placeholder="Your name" /></div>
         <label for="lEmail">Email</label>
         <input id="lEmail" type="email" placeholder="you@company.com" required />
-        <label for="lPassword">Password</label>
-        <input id="lPassword" type="password" placeholder="••••••••" required />
+        <div id="lPwField">
+          <label for="lPassword">Password</label>
+          <div class="lpwwrap">
+            <input id="lPassword" type="password" placeholder="••••••••" required />
+            <button type="button" class="lpwtoggle" id="lPwToggle" title="Show password"></button>
+          </div>
+          <div class="lforgot" id="lForgotRow"><a id="lForgotLink">Forgot password?</a></div>
+        </div>
         <button class="lbtn" id="lSubmit" type="submit">Sign in</button>
         <div class="lmsg" id="lMsg"></div>
         <div class="lhint" id="lHint"></div>
@@ -207,6 +221,8 @@
 
   <script>
     const $ = (id) => document.getElementById(id)
+    const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>'
+    const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 2 12 2 12a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'
     let cfg = null, working = false
     let todayBase = 0, fetchAt = Date.now()
 
@@ -348,18 +364,28 @@
     let authMode = 'login'
     function setAuthMode(m) {
       authMode = m
-      $('lTabLogin').classList.toggle('on', m === 'login')
-      $('lTabRegister').classList.toggle('on', m === 'register')
-      $('lSubmit').textContent = m === 'login' ? 'Sign in' : 'Create account'
-      $('lNameWrap').style.display = m === 'register' ? 'block' : 'none'
-      $('lHint').textContent = m === 'register' ? 'The first account created becomes the admin/manager. Everyone after is an employee.' : ''
+      const isLogin = m === 'login', isReg = m === 'register', isForgot = m === 'forgot'
+      $('lTabLogin').classList.toggle('on', isLogin)
+      $('lTabRegister').classList.toggle('on', isReg)
+      $('lSubmit').textContent = isForgot ? 'Send reset link' : isReg ? 'Create account' : 'Sign in'
+      $('lNameWrap').style.display = isReg ? 'block' : 'none'
+      $('lPwField').style.display = isForgot ? 'none' : 'block'
+      $('lForgotRow').style.display = isLogin ? 'block' : 'none'
+      if (isForgot) {
+        $('lHint').innerHTML = 'Enter your account email and we’ll email you a reset link. <a id="lBack" style="color:var(--teal);cursor:pointer">Back to sign in</a>'
+        $('lBack').onclick = () => setAuthMode('login')
+      } else { $('lHint').textContent = isReg ? 'The first account created becomes the admin/manager. Everyone after is an employee.' : '' }
       $('lMsg').textContent = ''
       // Clear fields when switching tabs.
       $('lEmail').value = ''; $('lPassword').value = ''; $('lName').value = ''
+      $('lPassword').type = 'password'; $('lPwToggle').innerHTML = EYE
       fitWindow()
     }
     $('lTabLogin').onclick = () => setAuthMode('login')
     $('lTabRegister').onclick = () => setAuthMode('register')
+    $('lPwToggle').innerHTML = EYE
+    $('lPwToggle').onclick = () => { const show = $('lPassword').type === 'password'; $('lPassword').type = show ? 'text' : 'password'; $('lPwToggle').innerHTML = show ? EYE_OFF : EYE }
+    $('lForgotLink').onclick = () => setAuthMode('forgot')
 
     $('lForm').onsubmit = async (e) => {
       e.preventDefault()
@@ -368,6 +394,13 @@
       const server = $('lServer').value.trim()
       if (server && (!cfg || server !== cfg.serverUrl)) cfg = await window.agent.setConfig({ serverUrl: server })
       const email = $('lEmail').value.trim(), password = $('lPassword').value, name = $('lName').value.trim()
+      if (authMode === 'forgot') {
+        if (!email) { $('lMsg').style.color = 'var(--red)'; $('lMsg').textContent = 'Enter your email'; $('lSubmit').disabled = false; return }
+        await window.agent.forgot(email)
+        $('lMsg').style.color = 'var(--teal)'; $('lMsg').textContent = 'If an account exists, a reset link is on its way. Check your email.'
+        $('lSubmit').disabled = false
+        return
+      }
       const r = authMode === 'login' ? await window.agent.login(email, password) : await window.agent.register(name, email, password)
       if (r && r.ok) {
         $('lMsg').style.color = 'var(--teal)'; $('lMsg').textContent = 'Signed in!'
