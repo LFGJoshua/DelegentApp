@@ -689,11 +689,14 @@ async function weeklyData(agents, fromStart, toEnd, tz) {
     let empSec = 0
     for (const s of segs) {
       const [st, en] = segInterval(s, now)
-      const sec = Math.round(overlap(st, en, fromStart, toEnd) / 1000)
-      if (sec <= 0) continue
-      empSec += sec
-      const dk = startOfLocalDay(st, tz)
-      dayMap.set(dk, (dayMap.get(dk) || 0) + sec)
+      const wk = overlap(st, en, fromStart, toEnd)
+      if (wk <= 0) continue
+      empSec += Math.round(wk / 1000)
+      // Distribute across the local days the segment spans (so no day exceeds 24h).
+      for (let d = Math.max(startOfLocalDay(st, tz), fromStart); d < en && d < toEnd; d += 86400000) {
+        const ov = overlap(st, en, d, d + 86400000)
+        if (ov > 0) dayMap.set(d, (dayMap.get(d) || 0) + Math.round(ov / 1000))
+      }
     }
     const shots = await db.prepare(`SELECT active_app AS app, activity_pct AS act FROM screenshots WHERE agent_id = ? AND captured_at >= ? AND captured_at < ?`).all(a.id, fromStart, toEnd)
     let eSum = 0, eN = 0
@@ -795,27 +798,26 @@ app.get('/api/time/daily', requireAuth, async (req, res) => {
   const days = Math.min(Number(req.query.days) || 5, 31)
   const now = Date.now()
   const tz = tzMin(req)
-  const STALE_MS = 90_000
   const dayKey = (ts) => startOfLocalDay(ts, tz)
   const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const segs = await db.prepare(`SELECT started_at, ended_at, seconds, open, note FROM work_segments WHERE agent_id = ?`).all(agentId)
   const byDay = new Map() // dayTs -> { seconds, notes: Map(note -> seconds) }
+  // Split each segment across the local days it spans (overlap per day) so time
+  // worked past midnight lands on the right day and no day exceeds 24h.
   for (const s of segs) {
-    const lastSeen = s.ended_at || s.started_at
-    const stale = s.open === 1 && now - lastSeen > STALE_MS
-    const running = s.open === 1 && !stale
-    let secs
-    if (running) secs = Math.round((now - s.started_at) / 1000)
-    else if (s.open === 1) secs = Math.round((lastSeen - s.started_at) / 1000)
-    else secs = s.seconds || 0
-    if (secs <= 0) continue
-    const k = dayKey(s.started_at)
-    const entry = byDay.get(k) || { seconds: 0, notes: new Map() }
-    entry.seconds += secs
+    const [st, en] = segInterval(s, now)
+    if (en <= st) continue
     const note = s.note && s.note.trim() ? s.note.trim() : 'No note'
-    entry.notes.set(note, (entry.notes.get(note) || 0) + secs)
-    byDay.set(k, entry)
+    for (let d = dayKey(st); d < en; d += 86400000) {
+      const ov = overlap(st, en, d, d + 86400000)
+      if (ov <= 0) continue
+      const sec = Math.round(ov / 1000)
+      const entry = byDay.get(d) || { seconds: 0, notes: new Map() }
+      entry.seconds += sec
+      entry.notes.set(note, (entry.notes.get(note) || 0) + sec)
+      byDay.set(d, entry)
+    }
   }
 
   const todayKey = dayKey(now)
