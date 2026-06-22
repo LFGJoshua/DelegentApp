@@ -370,6 +370,16 @@ app.post('/api/screenshots', requireAuth, async (req, res) => {
   if (!image) return res.status(400).json({ error: 'image is required' })
 
   const now = Date.now()
+
+  // Authoritative cap: never store more than 30 screenshots per user per rolling
+  // hour, even if a tampered client uploads faster. Counts by capture time.
+  try {
+    const row = await db.prepare(
+      `SELECT COUNT(*) AS n FROM screenshots WHERE agent_id = ? AND captured_at > ?`
+    ).get(agentId, now - 3600000)
+    if (Number(row?.n || 0) >= 30) return res.status(429).json({ error: 'hourly screenshot limit reached' })
+  } catch {}
+
   const id = randomUUID()
   const base64 = String(image).replace(/^data:image\/\w+;base64,/, '')
   const file = `${id}.png`

@@ -80,6 +80,7 @@ const state = {
   segmentId: null,    // server segment for the current running stretch
   currentNote: '',    // "what are you working on?"
   shotCount: 0,
+  recentShots: [],    // capture timestamps in the last hour (rolling cap guard)
   lastCaptureAt: null,
   lastError: null,
   activitySamples: [], // rolling window of recent active/idle samples
@@ -146,7 +147,8 @@ let config = {
   agentId: null,
   agentName: '',
   serverUrl: 'https://delegent-server.onrender.com',
-  intervalSec: 60,
+  intervalSec: 60,       // legacy; capture timing is now randomized (see shotsPerHour)
+  shotsPerHour: 30,      // target captures/hour, randomly spread; hard-capped at 30
   autoStart: true,  // start capturing automatically on launch
   userType: 'Default', // which signal profile applies (Developer, Virtual Assistant, …)
   token: null,         // login session token (Bearer) for the signed-in account
@@ -251,8 +253,53 @@ function pushStatus() {
 }
 
 // ---- Screen capture (only runs while the timer is working) ----
+const MAX_SHOTS_PER_HOUR = 30
+
+// Number of captures to spread across each hour. Honors config but never
+// exceeds the hard cap of 30/hour per user.
+function shotsPerHour() {
+  const v = Number(config.shotsPerHour) || MAX_SHOTS_PER_HOUR
+  return Math.min(MAX_SHOTS_PER_HOUR, Math.max(1, Math.round(v)))
+}
+
+// ---- Randomized capture scheduler ----
+// The hour is divided into N equal slots (N = shotsPerHour). Exactly one capture
+// fires per slot, at a uniformly random instant within it. This guarantees:
+//   • at most N (≤30) captures in any rolling hour      (max-per-hour cap)
+//   • one per slot -> evenly distributed across the hour (no clustering)
+//   • a random offset each slot -> no fixed cadence      (unpredictable timing)
+// The random instant is kept off the slot edges so captures in adjacent slots
+// can't bunch back-to-back (protects performance/storage).
+let captureAnchor = 0 // slot-grid origin (set when tracking starts)
+let nextSlot = 0      // index of the next slot to fire
+
+function armCaptureSchedule() {
+  if (captureTimer) { clearTimeout(captureTimer); captureTimer = null }
+  captureAnchor = Date.now()
+  nextSlot = 0
+  scheduleNextCapture()
+}
+
+function scheduleNextCapture() {
+  if (!state.working) return
+  const slotMs = 3600000 / shotsPerHour()
+  const lo = slotMs * 0.1, hi = slotMs * 0.9 // jitter window inside the slot
+  let delay
+  do {
+    const slotStart = captureAnchor + nextSlot * slotMs
+    delay = (slotStart + lo + Math.random() * (hi - lo)) - Date.now()
+    nextSlot++
+  } while (delay < 0) // skip past any slots already elapsed (e.g. sleep/wake)
+  captureTimer = setTimeout(() => { captureAndUpload(); scheduleNextCapture() }, delay)
+}
+
 async function captureAndUpload() {
   if (!state.working) return
+  // Hard guard: never exceed MAX_SHOTS_PER_HOUR in any rolling 60-minute window,
+  // regardless of play/pause churn or schedule drift.
+  const hourAgo = Date.now() - 3600000
+  state.recentShots = state.recentShots.filter(t => t > hourAgo)
+  if (state.recentShots.length >= MAX_SHOTS_PER_HOUR) { pushStatus(); return }
   try {
     const display = screen.getPrimaryDisplay()
     const sf = display.scaleFactor || 1
@@ -279,6 +326,7 @@ async function captureAndUpload() {
     })
     if (!res.ok) throw new Error('upload ' + res.status)
     state.shotCount++
+    state.recentShots.push(Date.now())
     state.lastCaptureAt = Date.now()
     state.lastError = null
     if (state.screenshotPreview) showScreenshotPreview(dataUrl)
@@ -323,7 +371,7 @@ async function play(note) {
   } catch (err) { state.lastError = 'server unreachable: ' + (err.message || err) }
 
   captureAndUpload() // capture immediately on play
-  captureTimer = setInterval(captureAndUpload, Math.max(5, config.intervalSec) * 1000)
+  armCaptureSchedule() // then randomized, evenly-spread captures
   heartbeatTimer = setInterval(sendHeartbeat, 15000)
   sampleActivity() // first activity reading right away
   activityTimer = setInterval(sampleActivity, ACTIVITY_SAMPLE_SEC * 1000)
@@ -338,7 +386,7 @@ async function pause() {
   state.accumulatedMs += ranMs
   state.working = false
 
-  if (captureTimer) { clearInterval(captureTimer); captureTimer = null }
+  if (captureTimer) { clearTimeout(captureTimer); captureTimer = null }
   if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
   if (activityTimer) { clearInterval(activityTimer); activityTimer = null }
   trust.stop()
@@ -438,10 +486,7 @@ ipcMain.handle('set-note', async (_e, note) => {
 })
 ipcMain.handle('set-config', (_e, patch) => {
   config = { ...config, ...patch }; saveConfig()
-  if (state.working && captureTimer) { // re-arm capture interval if it changed
-    clearInterval(captureTimer)
-    captureTimer = setInterval(captureAndUpload, Math.max(5, config.intervalSec) * 1000)
-  }
+  if (state.working) armCaptureSchedule() // re-arm randomized schedule if rate changed
   pushStatus(); return config
 })
 
