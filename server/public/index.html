@@ -83,6 +83,7 @@
     .card .chead .act { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
     .dot { width:12px; height:12px; border-radius:50%; background:#475569; }
     .dot.green { background:#28c840; } .dot.amber { background:#f5a623; } .dot.red { background:#ff4d4d; }
+    .batt { vertical-align:middle; margin-right:5px; flex-shrink:0; }
     .card img { width:100%; display:block; aspect-ratio:16/10; object-fit:cover; cursor:pointer; background:#000; }
     .empty { color:var(--muted); padding:40px 0; text-align:center; }
 
@@ -310,6 +311,20 @@
         </div>
         <div id="signalList"></div>
 
+        <div class="set-intro" style="margin-top:24px;background:rgba(45,212,191,0.06);border-color:rgba(45,212,191,0.2);color:#7ee0bd">Manipulation-app detection (applies to everyone). The agent scans running processes for these names — leave blank to use the built-in defaults (mouse jigglers, auto-clickers, AutoHotkey/AutoIt, etc.).</div>
+        <div class="set-row" style="display:block">
+          <label>Watchlist <span style="color:var(--faint);font-weight:400">— app/process names, one per line or comma-separated</span></label>
+          <textarea id="watchlist" class="rep-input" rows="4" style="max-width:560px;resize:vertical;font-family:monospace" placeholder="mousejiggler&#10;autoclicker&#10;autohotkey"></textarea>
+        </div>
+        <div class="sig">
+          <div class="info"><h4>Email alert on detection</h4><p>When a watchlisted app is found running, email an alert (throttled to once per hour per employee).</p></div>
+          <label class="switch"><input type="checkbox" id="prefManipAlert"><span class="slider"></span></label>
+        </div>
+        <div class="set-row" style="display:block">
+          <label>Alert email <span style="color:var(--faint);font-weight:400">— leave blank to send to all admins</span></label>
+          <input id="manipAlertEmail" class="rep-input" type="text" style="max-width:560px" placeholder="security@yourcompany.com" />
+        </div>
+
         <div class="set-intro" style="margin-top:24px;background:rgba(45,212,191,0.06);border-color:rgba(45,212,191,0.2);color:#7ee0bd">Desktop app notifications for this user type.</div>
         <div class="sig">
           <div class="info"><h4>Screenshot preview notification</h4><p>Show a small popup on the employee's desktop previewing each screenshot as it's captured.</p></div>
@@ -474,6 +489,7 @@
       { key:'cycling', name:'Tab Cycling / Fake Multitasking', desc:'Flags rapid window cycling. ⚠ Often misfires for developers (editor ↔ terminal ↔ browser).' },
       { key:'stale', name:'Stale Screen', desc:'Flags an unchanging screen for long periods. ⚠ Often misfires for developers (builds, reading, calls).' },
       { key:'mismatch', name:'Input-Activity Mismatch', desc:'Meta-signal: reported activity but no real output (static screen + no keystrokes).' },
+      { key:'appDetect', name:'Manipulation App Detected', desc:'Scans running processes for known mouse jigglers, auto-clickers, and macro tools (see watchlist below). Emails an alert when one is found.' },
     ]
     let allSettings = null
     function renderToggles(type) {
@@ -487,6 +503,13 @@
       $('prefScreenshotPreview').checked = !!prefs.screenshotPreview
       $('prefWeeklyEmail').checked = !!(allSettings.weeklyEmail && allSettings.weeklyEmail.enabled)
     }
+    // Watchlist + alert config are global (not per-type) — set once when settings load.
+    function renderGlobalSettings() {
+      $('watchlist').value = (allSettings.watchlist || []).join('\n')
+      const ma = allSettings.manipAlert || {}
+      $('prefManipAlert').checked = ma.enabled !== false
+      $('manipAlertEmail').value = ma.email || ''
+    }
     async function showSettings() {
       setViews('settings')
       $('setStatus').textContent = ''
@@ -494,6 +517,7 @@
       const sel = $('userTypeSel')
       sel.innerHTML = allSettings.types.map(t => `<option>${t}</option>`).join('')
       renderToggles(sel.value)
+      renderGlobalSettings()
       sel.onchange = () => { renderToggles(sel.value); $('setStatus').textContent = '' }
     }
     async function saveSettings() {
@@ -502,10 +526,14 @@
       document.querySelectorAll('#signalList input[data-key]').forEach(i => signals[i.dataset.key] = i.checked)
       const prefs = { screenshotPreview: $('prefScreenshotPreview').checked }
       const weeklyEmail = { enabled: $('prefWeeklyEmail').checked }
-      const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, signals, prefs, weeklyEmail }) }).then(r=>r.json())
+      const watchlist = $('watchlist').value
+      const manipAlert = { enabled: $('prefManipAlert').checked, email: $('manipAlertEmail').value.trim() }
+      const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, signals, prefs, weeklyEmail, watchlist, manipAlert }) }).then(r=>r.json())
       allSettings.signalsByType[type] = r.signals
       if (r.prefs) { allSettings.prefsByType = allSettings.prefsByType || {}; allSettings.prefsByType[type] = r.prefs }
       if (r.weeklyEmail) allSettings.weeklyEmail = r.weeklyEmail
+      if (r.watchlist) allSettings.watchlist = r.watchlist
+      if (r.manipAlert) allSettings.manipAlert = r.manipAlert
       $('setStatus').textContent = `✓ Saved for "${type}" — applies to those agents within ~15s`
     }
     function showHome() { setViews('home'); loadOverview() }
@@ -561,13 +589,13 @@
       if (!id || !repFrom) return
       const data = await fetch(`/api/report/apps?agentId=${id}&from=${apiD(repFrom)}&to=${apiD(repTo)}&tz=${TZMIN}`).then(r=>r.json())
       $('repTotal').textContent = hm(data.totalWorked)
-      $('repAct').textContent = data.activity + '%'
+      $('repAct').innerHTML = battery(data.activity) + data.activity + '%'
       let acc = 0; const segs = []
       data.apps.forEach((a,i)=>{ const c = APP_COLORS[i%APP_COLORS.length]; segs.push(`${c} ${acc}% ${acc+a.pct}%`); acc += a.pct })
       $('repDonut').style.background = data.apps.length ? `conic-gradient(${segs.join(',')})` : '#0e1626'
       $('repLegend').innerHTML = data.apps.map((a,i)=>`<div class="lg"><span class="sw" style="background:${APP_COLORS[i%APP_COLORS.length]}"></span>${esc(a.app)}<span class="lp">${a.pct}%</span></div>`).join('')
       const empName = ($('repEmployee').options[$('repEmployee').selectedIndex]||{}).text || ''
-      $('repTableBody').innerHTML = `<div class="rrow"><span><b>${esc(empName)}</b></span><span>${hm(data.totalWorked)}</span><span>${data.activity}%</span></div>`
+      $('repTableBody').innerHTML = `<div class="rrow"><span><b>${esc(empName)}</b></span><span>${hm(data.totalWorked)}</span><span>${battery(data.activity)}${data.activity}%</span></div>`
       window._repData = data
       // Donut stays on top; show the section for the selected report type below it.
       applyRepType(repType)
@@ -588,7 +616,7 @@
         <td>${tFmt(r.from)}</td>
         <td>${tFmt(r.to)}</td>
         <td class="r">${hm(r.durationSec)}</td>
-        <td class="r">${r.activity==null?'—':r.activity+'%'}</td>
+        <td class="r">${r.activity==null?'—':battery(r.activity)+r.activity+'%'}</td>
       </tr>`).join('') : '<tr class="empty-row"><td colspan="8">No sessions in this range.</td></tr>'
       $('repDetailed').innerHTML = `<table class="det">
         <thead><tr><th>Date</th><th>Employee</th><th>Project</th><th>Note</th><th>From</th><th>To</th><th class="r">Duration</th><th class="r">Activity</th></tr></thead>
@@ -601,9 +629,9 @@
       const days = data.days || []
       const dDate = (ts) => new Date(ts).toLocaleDateString(undefined,{ weekday:'short', day:'2-digit', month:'short' })
       const head = `<div class="thead"><span class="tname">± Employee / ± Date / ± Note</span><span class="tdur">Duration</span><span class="tact">Activity</span></div>`
-      const empRow = `<div class="trow emp" id="dEmp"><span class="tname"><span class="tw">⊟</span>${esc(data.employee)}</span><span class="tdur">${hm(data.total.seconds)}</span><span class="tact">${data.total.activity}%</span></div>`
+      const empRow = `<div class="trow emp" id="dEmp"><span class="tname"><span class="tw">⊟</span>${esc(data.employee)}</span><span class="tdur">${hm(data.total.seconds)}</span><span class="tact">${battery(data.total.activity)}${data.total.activity}%</span></div>`
       const dayRows = days.length ? days.map((d,i)=>`
-        <div class="trow day" data-day="${i}"><span class="tname"><span class="tw">⊞</span>${dDate(d.date)}</span><span class="tdur">${hm(d.seconds)}</span><span class="tact">${d.activity==null?'—':d.activity+'%'}</span></div>
+        <div class="trow day" data-day="${i}"><span class="tname"><span class="tw">⊞</span>${dDate(d.date)}</span><span class="tdur">${hm(d.seconds)}</span><span class="tact">${d.activity==null?'—':battery(d.activity)+d.activity+'%'}</span></div>
         <div data-daych="${i}" style="display:none">
           ${d.notes.map(n=>`<div class="trow note"><span class="tname"><span class="tw"></span>${esc(n.note)}</span><span class="tdur">${hm(n.seconds)}</span><span class="tact"></span></div>`).join('')}
         </div>`).join('') : '<div class="trow"><span class="tname" style="color:#8a93a0;padding-left:20px">No sessions in this range.</span><span class="tdur"></span><span class="tact"></span></div>'
@@ -681,7 +709,7 @@
           <div class="phead">${ampm(p.start)} - ${ampm(p.end)} <span class="dot ${actClass(avg)}" title="${avg==null?'—':avg+'% active'}"></span>${avg==null?'':`<span style="font-size:13px;color:#94a3b8;font-weight:600">${avg}%</span>`}</div>
           <div class="cards">${p.shots.map(s=>`
             <div class="card">
-              <div class="chead"><span class="t">${ampm(s.capturedAt)}</span><span class="app">${esc(s.activeApp||'')}</span><span class="act"><span class="dot ${actClass(s.activityPct)}"></span>${s.activityPct==null?'':s.activityPct+'%'}</span></div>
+              <div class="chead"><span class="t">${ampm(s.capturedAt)}</span><span class="app">${esc(s.activeApp||'')}</span><span class="act">${battery(s.activityPct)}${s.activityPct==null?'':s.activityPct+'%'}</span></div>
               <img src="${s.url}" loading="lazy" onclick="zoom('${s.url}')" />
             </div>`).join('')}</div>
         </div>`}).join('') : '<div class="empty">No screenshots for this day.</div>'
@@ -689,6 +717,17 @@
     const esc = (s) => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
     // Activity color: green >=50%, amber 25-49%, red below, grey if unknown.
     const actClass = (pct) => pct==null ? '' : pct>=50 ? 'green' : pct>=25 ? 'amber' : 'red'
+    // Productivity battery: fill level + color reflect the activity %.
+    const battColor = (pct) => pct==null ? '#475569' : pct>=50 ? '#28c840' : pct>=25 ? '#f5a623' : '#ff4d4d'
+    const battery = (pct) => {
+      const v = pct==null ? 0 : Math.max(0, Math.min(100, pct)), c = battColor(pct)
+      const w = (v/100*16).toFixed(1)
+      return `<svg class="batt" viewBox="0 0 24 12" width="20" height="11" aria-hidden="true">`
+        + `<rect x="1" y="2" width="19" height="8" rx="2.2" fill="none" stroke="${c}" stroke-width="1.4"/>`
+        + `<rect x="21" y="4.3" width="2" height="3.4" rx="1" fill="${c}"/>`
+        + (Number(w) > 0 ? `<rect x="2.2" y="3.4" width="${w}" height="5.2" rx="1" fill="${c}"/>` : '')
+        + `</svg>`
+    }
     const trustClass = (t) => t>=70 ? 'green' : t>=50 ? 'amber' : t>=25 ? 'orange' : 'red'
     const trustLabel = (t) => t>=85 ? 'Trusted' : t>=70 ? 'Normal' : t>=50 ? 'Suspicious' : t>=25 ? 'Flagged' : 'Manipulating'
     function zoom(u){ $('lightboxImg').src=u; $('lightbox').style.display='flex' }

@@ -50,6 +50,7 @@ async function init() {
       pass_salt   TEXT NOT NULL,
       role        TEXT NOT NULL DEFAULT 'employee',
       user_type   TEXT NOT NULL DEFAULT 'Default',
+      company     TEXT,
       created_at  BIGINT NOT NULL
     );
 
@@ -108,6 +109,9 @@ async function init() {
       used        INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
+
+    -- Migrations for existing databases (idempotent).
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS company TEXT;
   `)
 }
 

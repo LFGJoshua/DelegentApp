@@ -82,8 +82,8 @@ const COOKIE = 'delegent_session'
 
 const getUserByEmail = db.prepare('SELECT * FROM users WHERE email = ?')
 const getUserById = db.prepare('SELECT * FROM users WHERE id = ?')
-const insertUser = db.prepare(`INSERT INTO users (id, email, name, pass_hash, pass_salt, role, user_type, created_at)
-  VALUES (@id, @email, @name, @pass_hash, @pass_salt, @role, @user_type, @created_at)`)
+const insertUser = db.prepare(`INSERT INTO users (id, email, name, pass_hash, pass_salt, role, user_type, company, created_at)
+  VALUES (@id, @email, @name, @pass_hash, @pass_salt, @role, @user_type, @company, @created_at)`)
 const countUsers = db.prepare('SELECT COUNT(*) AS n FROM users')
 const countAdmins = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`)
 const listUsers = db.prepare('SELECT id, email, name, role, user_type, created_at FROM users ORDER BY created_at ASC')
@@ -125,7 +125,7 @@ async function createSession(userId) {
   await insertSession.run({ token, user_id: userId, created_at: now, expires_at: now + SESSION_TTL_MS })
   return token
 }
-const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, userType: u.user_type })
+const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, userType: u.user_type, company: u.company || null })
 
 // Resolve the current user from a Bearer token (desktop) or session cookie (web).
 app.use(async (req, _res, next) => {
@@ -175,6 +175,7 @@ function setSessionCookie(res, token) {
 app.post('/api/auth/register', async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase()
   const name = String(req.body?.name || '').trim()
+  const company = String(req.body?.company || '').trim() || null
   const password = req.body?.password || ''
   if (!email || !password) return res.status(400).json({ error: 'email and password are required' })
   if (!name) return res.status(400).json({ error: 'name is required' })
@@ -185,7 +186,7 @@ app.post('/api/auth/register', async (req, res) => {
   const role = (await countUsers.get()).n === 0 ? 'admin' : 'employee'
   const { salt, hash } = hashPassword(password)
   const id = randomUUID()
-  await insertUser.run({ id, email, name: name || email.split('@')[0], pass_hash: hash, pass_salt: salt, role, user_type: 'Default', created_at: Date.now() })
+  await insertUser.run({ id, email, name: name || email.split('@')[0], pass_hash: hash, pass_salt: salt, role, user_type: 'Default', company, created_at: Date.now() })
   const token = await createSession(id)
   setSessionCookie(res, token)
   res.json({ user: publicUser(await getUserById.get(id)), token })
@@ -272,7 +273,7 @@ app.post('/api/users/:id', requireAdmin, async (req, res) => {
 })
 
 // --- Admin settings: which TrustScore signals are enabled, per user type ---
-const DEFAULT_SIGNALS = { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true }
+const DEFAULT_SIGNALS = { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true, appDetect: true }
 const USER_TYPES = ['Default', 'Developer', 'Virtual Assistant', 'Data Entry', 'Designer']
 // Sensible per-type starting points (the two dev-unfriendly signals start off).
 const TYPE_DEFAULTS = {
@@ -315,6 +316,27 @@ async function readWeeklyEmail() {
   return { enabled: !!v.enabled, tz: Number.isFinite(v.tz) ? v.tz : 480, lastSent: v.lastSent || null }
 }
 
+// Signal 6: watchlist of activity-manipulation app names the agent scans for.
+// Stored as a global newline/comma list; empty means the agent uses its defaults.
+async function readWatchlist() {
+  const row = await getSetting.get('watchlist')
+  if (!row) return []
+  try { const v = JSON.parse(row.value); return Array.isArray(v) ? v : [] } catch { return [] }
+}
+const parseWatchlist = (input) => {
+  const arr = Array.isArray(input) ? input : String(input || '').split(/[\n,]/)
+  return [...new Set(arr.map((s) => String(s).trim()).filter(Boolean))].slice(0, 200)
+}
+
+// Where manipulation-detection alerts go. If alertEmail is blank, fall back to
+// all admins (same recipients as the weekly report).
+async function readAlertCfg() {
+  const row = await getSetting.get('manipAlert')
+  let v = {}
+  try { v = row ? JSON.parse(row.value) : {} } catch {}
+  return { enabled: v.enabled !== false, email: typeof v.email === 'string' ? v.email : '', sent: v.sent || {} }
+}
+
 // ?type=X → just that type's signals (used by the agent). No type → full map (UI).
 app.get('/api/settings', requireAuth, async (req, res) => {
   const byType = await readByType()
@@ -322,7 +344,9 @@ app.get('/api/settings', requireAuth, async (req, res) => {
     const t = USER_TYPES.includes(req.query.type) ? req.query.type : 'Default'
     return res.json({ type: t, signals: byType[t] })
   }
-  res.json({ types: USER_TYPES, signalsByType: byType, prefsByType: await readPrefsByType(), weeklyEmail: await readWeeklyEmail() })
+  const alert = await readAlertCfg()
+  res.json({ types: USER_TYPES, signalsByType: byType, prefsByType: await readPrefsByType(), weeklyEmail: await readWeeklyEmail(),
+    watchlist: await readWatchlist(), manipAlert: { enabled: alert.enabled, email: alert.email } })
 })
 
 // The agent's own signal profile + desktop prefs — resolved from the logged-in
@@ -331,7 +355,7 @@ app.get('/api/my-signals', requireAuth, async (req, res) => {
   const byType = await readByType()
   const prefs = await readPrefsByType()
   const t = USER_TYPES.includes(req.user.user_type) ? req.user.user_type : 'Default'
-  res.json({ userType: t, signals: byType[t], screenshotPreview: !!prefs[t].screenshotPreview })
+  res.json({ userType: t, signals: byType[t], screenshotPreview: !!prefs[t].screenshotPreview, watchlist: await readWatchlist() })
 })
 
 app.post('/api/settings', requireAdmin, async (req, res) => {
@@ -358,7 +382,21 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
     if (Number.isFinite(req.body.weeklyEmail.tz)) weeklyEmail.tz = req.body.weeklyEmail.tz
     await setSetting.run({ k: 'weeklyEmail', v: JSON.stringify(weeklyEmail) })
   }
-  res.json({ ok: true, type: t, signals: next, prefs: prefsByType[t], weeklyEmail })
+
+  // Signal 6 config: watchlist of manipulation apps + where alerts are emailed.
+  let watchlist, manipAlert
+  if (req.body.watchlist !== undefined) {
+    watchlist = parseWatchlist(req.body.watchlist)
+    await setSetting.run({ k: 'watchlist', v: JSON.stringify(watchlist) })
+  }
+  if (req.body.manipAlert) {
+    const cur = await readAlertCfg()
+    cur.enabled = req.body.manipAlert.enabled !== false
+    if (typeof req.body.manipAlert.email === 'string') cur.email = req.body.manipAlert.email.trim()
+    await setSetting.run({ k: 'manipAlert', v: JSON.stringify(cur) })
+    manipAlert = { enabled: cur.enabled, email: cur.email }
+  }
+  res.json({ ok: true, type: t, signals: next, prefs: prefsByType[t], weeklyEmail, watchlist, manipAlert })
 })
 
 // Agent uploads a screenshot (base64 PNG + metadata). Ownership comes from the
@@ -507,6 +545,48 @@ app.post('/api/time/heartbeat', requireAuth, async (req, res) => {
   await recordTrust(segmentId, req.body.trustScore, req.body.trustFlags)
   res.json({ ok: true })
 })
+
+// Signal 6: the agent reports a freshly-detected manipulation app. Email an alert
+// to the configured recipient (or admins), throttled to once per hour per user.
+const MANIP_ALERT_COOLDOWN_MS = 60 * 60 * 1000
+app.post('/api/alert/manipulation', requireAuth, async (req, res) => {
+  const apps = Array.isArray(req.body?.apps)
+    ? [...new Set(req.body.apps.map((a) => String(a).slice(0, 80)).filter(Boolean))].slice(0, 20) : []
+  if (!apps.length) return res.json({ ok: true, emailed: false })
+  let emailed = false
+  try { emailed = await sendManipAlert(req.user, apps) } catch (e) { console.error('manip alert error:', e.message) }
+  res.json({ ok: true, emailed })
+})
+
+async function sendManipAlert(user, apps) {
+  const cfg = await readAlertCfg()
+  if (!cfg.enabled || !mailReady) return false
+  const now = Date.now()
+  if (now - (cfg.sent[user.id] || 0) < MANIP_ALERT_COOLDOWN_MS) return false // throttle per user
+
+  const recipients = cfg.email
+    ? cfg.email.split(/[\n,;]/).map((s) => s.trim()).filter(Boolean)
+    : (await db.prepare("SELECT email FROM users WHERE role = 'admin'").all()).map((r) => r.email)
+  if (!recipients.length) return false
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  const when = new Date(now).toUTCString()
+  const list = apps.map((a) => `<li style="margin:2px 0">${esc(a)}</li>`).join('')
+  const html = `<div style="font-family:'Segoe UI',Arial,sans-serif;color:#1f2937;max-width:520px">
+    <h2 style="margin:0 0 6px;color:#b91c1c">⚠ Activity-manipulation app detected</h2>
+    <p style="color:#374151;margin:0 0 14px"><b>${esc(user.name || user.email)}</b> (${esc(user.email)}) had the following app(s) running while tracking time:</p>
+    <ul style="color:#111827;font-weight:600">${list}</ul>
+    <p style="color:#6b7280;font-size:13px;margin:14px 0 0">Detected at ${when}. This is an automated TrustScore alert from Delegent.</p>
+  </div>`
+  const text = `Activity-manipulation app detected for ${user.name || user.email} (${user.email}): ${apps.join(', ')} at ${when}`
+  let sent = false
+  for (const to of recipients) {
+    try { await sendMail({ to, subject: `Delegent alert: manipulation app detected — ${user.name || user.email}`, html, text }); sent = true }
+    catch (e) { console.error('manip alert send failed for', to, ':', e.message) }
+  }
+  if (sent) { cfg.sent[user.id] = now; await setSetting.run({ k: 'manipAlert', v: JSON.stringify(cfg) }) }
+  return sent
+}
 
 // Timer pressed Pause/Stop: finalize the segment.
 app.post('/api/time/stop', requireAuth, async (req, res) => {

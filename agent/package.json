@@ -4,6 +4,9 @@
   "description": "Delegent monitoring agent — captures the screen on an interval and uploads to the backend.",
   "private": true,
   "main": "electron/main.cjs",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node scripts/launch.cjs",
     "dist": "electron-builder --win --publish never",

@@ -11,6 +11,8 @@ services:
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: "24"           # run on Node 24.x
       - key: COOKIE_SECURE
         value: "1"            # Render serves over HTTPS
       - key: SUPABASE_BUCKET

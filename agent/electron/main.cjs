@@ -66,8 +66,24 @@ function sampleActivity() {
   while (state.activitySamples.length > ACTIVITY_WINDOW) state.activitySamples.shift()
   const active = state.activitySamples.filter(Boolean).length
   state.activityPct = Math.round((active / state.activitySamples.length) * 100)
-  try { const t = trust.score(state.activityPct, state.enabledSignals); state.trustScore = t.trustScore; state.trustFlags = t.flags; state.trustLabel = t.label } catch {}
+  try {
+    const t = trust.score(state.activityPct, state.enabledSignals)
+    state.trustScore = t.trustScore; state.trustFlags = t.flags; state.trustLabel = t.label
+    // Signal 6: on a NEW manipulation-app detection, alert the server (which emails admins).
+    const fresh = (t.detectedApps || []).filter((a) => !state.reportedApps.has(a))
+    if (fresh.length) { fresh.forEach((a) => state.reportedApps.add(a)); reportManipulation(fresh) }
+  } catch {}
   pushStatus()
+}
+
+// Tell the server a manipulation app was detected so it can email an alert.
+async function reportManipulation(apps) {
+  try {
+    await authFetch('/api/alert/manipulation', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apps }),
+    })
+  } catch {}
 }
 
 // Timer / work-session state.
@@ -89,8 +105,10 @@ const state = {
   trustFlags: [],      // flagged suspicious events
   trustLabel: 'Trusted',
   lastHash: null,      // previous screenshot perceptual hash (Signal 4)
-  enabledSignals: { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true },
+  enabledSignals: { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true, appDetect: true },
   screenshotPreview: false, // show a preview popup on each capture (admin setting)
+  watchlist: [],            // manipulation-app process names to detect (Signal 6)
+  reportedApps: new Set(),  // apps already alerted this session (avoid duplicate emails)
 }
 
 // Pull the signed-in user's signal profile from the server. The server resolves
@@ -105,6 +123,7 @@ async function fetchSettings() {
       if (j.signals) state.enabledSignals = j.signals
       if (j.userType) config.userType = j.userType
       state.screenshotPreview = !!j.screenshotPreview
+      if (Array.isArray(j.watchlist)) state.watchlist = j.watchlist
     }
   } catch {}
 }
@@ -205,11 +224,11 @@ async function doLogin(email, password) {
   } catch { return { ok: false, error: 'cannot reach server at ' + config.serverUrl } }
 }
 
-async function doRegister(name, email, password) {
+async function doRegister(name, email, password, company) {
   try {
     const res = await fetch(serverBase() + '/api/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, company }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) return { ok: false, error: data.error || 'registration failed' }
@@ -376,7 +395,8 @@ async function play(note) {
   sampleActivity() // first activity reading right away
   activityTimer = setInterval(sampleActivity, ACTIVITY_SAMPLE_SEC * 1000)
   await fetchSettings() // honor admin signal toggles
-  trust.start(getActiveApp, state.enabledSignals) // behavioral detection on the desktop
+  state.reportedApps = new Set()
+  trust.start(getActiveApp, state.enabledSignals, state.watchlist) // behavioral detection on the desktop
   pushStatus()
 }
 
@@ -440,7 +460,7 @@ function createTray() {
 // ---- IPC ----
 ipcMain.handle('get-state', () => ({ ...state, sessionMs: sessionMs(), config, appVersion: app.getVersion() }))
 ipcMain.handle('auth-login', (_e, { email, password } = {}) => doLogin(email, password))
-ipcMain.handle('auth-register', (_e, { name, email, password } = {}) => doRegister(name, email, password))
+ipcMain.handle('auth-register', (_e, { name, email, password, company } = {}) => doRegister(name, email, password, company))
 ipcMain.handle('auth-logout', () => doLogout())
 // Request a password-reset email (unauthenticated). The reset link in the email
 // opens the web /reset page in the browser.
@@ -520,7 +540,7 @@ function showScreenshotPreview(dataUrl) {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 420, height: COMPACT_H, resizable: true,
+    width: 420, height: COMPACT_H, minWidth: 420, resizable: true,
     backgroundColor: '#08110f', title: 'Delegent', autoHideMenuBar: true,
     webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false },
   })

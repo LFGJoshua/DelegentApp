@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('agent', {
   getState: () => ipcRenderer.invoke('get-state'),
   setConfig: (patch) => ipcRenderer.invoke('set-config', patch),
   login: (email, password) => ipcRenderer.invoke('auth-login', { email, password }),
-  register: (name, email, password) => ipcRenderer.invoke('auth-register', { name, email, password }),
+  register: (name, email, password, company) => ipcRenderer.invoke('auth-register', { name, email, password, company }),
   logout: () => ipcRenderer.invoke('auth-logout'),
   forgot: (email) => ipcRenderer.invoke('auth-forgot', { email }),
   fitWindow: (h) => ipcRenderer.invoke('fit-window', h),

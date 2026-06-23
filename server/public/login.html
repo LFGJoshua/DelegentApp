@@ -64,6 +64,8 @@
         <div class="name-field" id="nameField">
           <label for="name">Name</label>
           <input id="name" type="text" autocomplete="name" placeholder="Your name" />
+          <label for="company">Company name <span style="color:var(--t3);font-weight:500">(optional)</span></label>
+          <input id="company" type="text" autocomplete="organization" placeholder="Your company" />
         </div>
         <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" placeholder="you@company.com" required />
@@ -118,7 +120,7 @@
       }
       $('msg').textContent = ''
       // Clear fields when switching tabs.
-      $('email').value = ''; $('password').value = ''; $('name').value = ''
+      $('email').value = ''; $('password').value = ''; $('name').value = ''; $('company').value = ''
       $('password').type = 'password'; $('pwToggle').innerHTML = EYE; $('pwToggle').title = 'Show password'
       renderReqs()
     }
@@ -149,7 +151,7 @@
 
     $('form').onsubmit = async (e) => {
       e.preventDefault()
-      const email = $('email').value.trim(), password = $('password').value, name = $('name').value.trim()
+      const email = $('email').value.trim(), password = $('password').value, name = $('name').value.trim(), company = $('company').value.trim()
 
       // Forgot-password: just send the reset email.
       if (mode === 'forgot') {
@@ -176,7 +178,7 @@
 
       $('submit').disabled = true
       $('msg').className = 'msg'; $('msg').textContent = 'Please wait…'
-      const body = mode === 'register' ? { name, email, password } : { email, password }
+      const body = mode === 'register' ? { name, company, email, password } : { email, password }
       try {
         const res = await fetch('/api/auth/' + mode, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),

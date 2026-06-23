@@ -37,11 +37,62 @@ let kbProc = null
 let keystrokes = []
 const VK_BACK = 8, VK_DELETE = 46
 
+// Signal 6: third-party activity-manipulation apps running on the machine.
+// We scan running PROCESS NAMES only (never command-line args / window titles)
+// and match them against a watchlist. Only matched app names are ever reported.
+let procTimer = null
+let watchlist = []        // admin-configurable name fragments (falls back to defaults)
+let detectedApps = []     // [{ name, term }] matched this scan
+const DEFAULT_WATCHLIST = [
+  // Mouse jigglers / movers
+  'mousejiggler', 'move mouse', 'movemouse', 'jiggler', 'automousemover', 'mouse mover', 'wigglemouse', 'mousewiggle',
+  // Auto-clickers
+  'autoclicker', 'auto clicker', 'opautoclicker', 'gs auto clicker', 'gsautoclicker', 'clickermann', 'free auto clicker',
+  // Macro / automation tools
+  'autohotkey', 'autoit', 'tinytask', 'pulover', 'macro recorder', 'macrorecorder', 'jitbit', 'axife',
+]
+const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '')
+function matchWatch(procName, list) {
+  const np = norm(procName)
+  if (!np) return null
+  for (const w of list) { const nw = norm(w); if (nw && np.includes(nw)) return w }
+  return null
+}
+// Scan running processes (cross-platform), match against the watchlist, and
+// update `detectedApps`. All async; score() reads the latest result synchronously.
+function scanProcs() {
+  const list = watchlist.length ? watchlist : DEFAULT_WATCHLIST
+  const onNames = (names) => {
+    const hits = new Map()
+    for (const n of names) { const term = matchWatch(n, list); if (term && !hits.has(n)) hits.set(n, term) }
+    detectedApps = [...hits].map(([name, term]) => ({ name, term }))
+  }
+  const run = (cmd, args, parse, onErr) => {
+    try {
+      const p = spawn(cmd, args, { windowsHide: true })
+      let out = ''
+      p.stdout.on('data', (d) => { out += d.toString() })
+      p.on('close', () => { try { onNames(parse(out)) } catch {} })
+      p.on('error', () => { if (onErr) onErr() })
+    } catch { if (onErr) onErr() }
+  }
+  if (process.platform === 'win32') {
+    // CSV: "Image Name","PID",... → first quoted field is the executable name.
+    run('tasklist', ['/fo', 'csv', '/nh'], (out) =>
+      out.split(/\r?\n/).map((l) => (l.match(/^"([^"]+)"/) || [])[1]).filter(Boolean))
+  } else {
+    // macOS/BSD: `ps -axco comm`. Linux fallback: `ps -A -o comm=`.
+    run('ps', ['-axco', 'comm'], (out) => out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
+      () => run('ps', ['-A', '-o', 'comm='], (out) => out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)))
+  }
+}
+
 function reset() {
   samples = []; lastPos = null; lastMoveTime = Date.now()
   hadNonMouseInput = false; nonMouseCount = 0; windowSwitches = 0; lastApp = null
   keystrokes = []
   windowEvents = []; consecutiveStale = 0
+  detectedApps = []
 }
 
 // Signal 4 input: main process reports the Hamming distance between consecutive
@@ -185,7 +236,7 @@ function band(score) {
 function score(activityPct = 0, enabled) {
   const m = analyze()
   const flags = []
-  const en = { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true, ...(enabled || {}) }
+  const en = { jiggler: true, fakeTyping: true, cycling: true, stale: true, mismatch: true, appDetect: true, ...(enabled || {}) }
 
   // Signal 1: Mouse jiggler.
   let jiggler = 0
@@ -230,26 +281,38 @@ function score(activityPct = 0, enabled) {
     flags.push('Input-activity mismatch: reported activity with a static screen and no real output')
   }
 
-  const signals = { jiggler, fakeTyping, cycling, stale, mismatch }
-  let raw = Math.max(jiggler, fakeTyping, cycling, stale, mismatch)
+  // Signal 6: third-party activity-manipulation app running (process watchlist).
+  let appDetect = 0
+  if (en.appDetect && detectedApps.length) {
+    appDetect = 100 // a known manipulation tool running is definitive
+    for (const a of detectedApps) flags.push(`Activity-manipulation app detected: ${a.name}`)
+  }
+
+  const signals = { jiggler, fakeTyping, cycling, stale, mismatch, appDetect }
+  let raw = Math.max(jiggler, fakeTyping, cycling, stale, mismatch, appDetect)
   const triggered = Object.values(signals).filter((v) => v > SIGNAL_THRESHOLD).length
   if (triggered >= 2) raw = Math.min(100, raw * 1.3) // corroborating signals amplify
 
   const trustScore = clamp100(Math.round(100 - raw))
-  return { trustScore, ...band(trustScore), flags, signals, metrics: m }
+  return { trustScore, ...band(trustScore), flags, signals, metrics: m, detectedApps: detectedApps.map((a) => a.name) }
 }
 
-function start(getActiveAppFn, enabled) {
+function start(getActiveAppFn, enabled, watch) {
   reset()
   getApp = getActiveAppFn || null
+  watchlist = Array.isArray(watch) && watch.length ? watch : DEFAULT_WATCHLIST
   sampleTimer = setInterval(tick, SAMPLE_MS)
   if (getApp) appTimer = setInterval(appTick, 5000)
   // Only run the keyboard hook if the fake-keyboard signal is enabled (privacy).
   if (!enabled || enabled.fakeTyping !== false) startKeyboard()
+  // Process watchlist scan (Signal 6).
+  if (!enabled || enabled.appDetect !== false) { scanProcs(); procTimer = setInterval(scanProcs, 20000) }
 }
 function stop() {
   if (sampleTimer) clearInterval(sampleTimer); sampleTimer = null
   if (appTimer) clearInterval(appTimer); appTimer = null
+  if (procTimer) clearInterval(procTimer); procTimer = null
+  detectedApps = []
   stopKeyboard()
 }
 
